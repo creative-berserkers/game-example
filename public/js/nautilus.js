@@ -89,26 +89,20 @@ Nautilus.createClient = function(conf) {
             console.log('<=')
             console.log(msg)
             if (msg.type === 'call-response') {
-                if(msg.synced === true){
+                if(msg.synced === true && objects[msg.resultName] === undefined){
                     msg.methods.forEach(function(method) {
-                        createProxyMethod(msg.result, msg.name, method)
+                        createProxyMethod(msg.result, msg.resultName, method)
                     })
-                    objects[msg.name] = conf.response
+                    if(msg.resultName === 'index'){
+                        conf.onIndex(msg.result)
+                    }
+                    objects[msg.resultName] = msg.result
                 }
-                if(msg.name === 'index'){
-                    conf.onIndex(msg.result)
-                }
+                
                 if(response[msg.id] !== undefined){
                     response[msg.id].resolve(msg.result)
                     delete response[msg.id]
                 }
-            }
-            if (msg.type === 'object-response') {
-                objects[msg.name] = msg.object
-                msg.methods.forEach(function(method) {
-                    createProxyMethod(msg.object, msg.name, method)
-                })
-                reponseObject.resolve(msg.object)
             }
             if (msg.type === 'object-broadcast') {
                 console.log('applying changes')
