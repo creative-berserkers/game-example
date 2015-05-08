@@ -1,0 +1,139 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <title>pixi.js example 1</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0000FF;
+            overflow: hidden;
+        }
+    </style>
+    <script src="/js/pixi.js"></script>
+
+</head>
+
+<body>
+    <script>
+        // create an new instance of a pixi stage
+        var stage = new PIXI.Stage(0x66FF99);
+
+        // create a renderer instance
+        var renderer = new PIXI.WebGLRenderer(400, 300,{
+            antialias : false
+        }); //autoDetectRenderer(400, 300);
+        PIXI.scaleModes.DEFAULT = PIXI.scaleModes.NEAREST;
+        // add the renderer view element to the DOM
+        document.body.appendChild(renderer.view);
+
+        requestAnimationFrame(animate);
+
+        // create a texture from an image path
+        var texture = PIXI.Texture.fromImage("/assets/bunny.png");
+        // create a new Sprite using the texture
+        var bunny = new PIXI.Sprite(texture);
+
+        // center the sprites anchor point
+        bunny.anchor.x = 0.5;
+        bunny.anchor.y = 0.5;
+
+        // move the sprite t the center of the screen
+        bunny.position.x = 50;
+        bunny.position.y = 30;
+
+        var container = new PIXI.DisplayObjectContainer();
+        
+        container.scale.x = 8;
+        container.scale.y = 8;
+        container.position.x = 0
+        container.position.y = 0
+        container.addChild(bunny);
+        
+        stage.addChild(container);
+        
+        var screenWidth = document.documentElement.clientWidth
+        var screenHeight = document.documentElement.clientHeight
+
+        function isInFullScreenMode() {
+            if (!document.fullscreenElement && !document.mozFullScreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
+                return false
+            }
+            return true
+        }
+
+        function onFullScreenChange() {
+            if (isInFullScreenMode()) {
+                console.log("We are entering fullscreen");
+                //renderer.view.width = window.screen.width;
+                //renderer.view.height = window.screen.height;
+                renderer.resize(window.screen.width, window.screen.height)
+                var ratio = window.screen.height/window.screen.width
+                container.scale.x = window.screen.width/160;
+                container.scale.y = window.screen.height/(160*ratio);
+            }
+            else {
+                console.log("We are leaving fullscreen");
+                //renderer.view.width = screenWidth
+                //renderer.view.height = screenHeight
+                renderer.resize(screenWidth, screenHeight)
+                var ratio = screenHeight/screenWidth
+                container.scale.x = screenWidth/160;
+                container.scale.y = screenHeight/(160*ratio);
+            }
+        }
+
+        function RequestFullscreen() {
+            var elem = document.getElementsByTagName("canvas")[0];
+
+            if (elem.requestFullscreen) {
+                document.addEventListener("fullscreenchange", onFullScreenChange, false)
+                elem.requestFullscreen();
+            }
+            else if (elem.msRequestFullscreen) {
+                document.addEventListener("msfullscreenchange", onFullScreenChange, false)
+                elem.msRequestFullscreen();
+            }
+            else if (elem.mozRequestFullScreen) {
+                document.addEventListener("mozfullscreenchange", onFullScreenChange, false)
+                elem.mozRequestFullScreen();
+            }
+            else if (elem.webkitRequestFullscreen) {
+                document.addEventListener("webkitfullscreenchange", onFullScreenChange, false)
+                elem.webkitRequestFullscreen();
+            }
+        }
+        
+        window.onresize = function(event) {
+            screenWidth = document.documentElement.clientWidth
+            screenHeight = document.documentElement.clientHeight
+            onFullScreenChange();
+        };
+        
+        onFullScreenChange()
+
+
+        var lastTime = Date.now(),
+            timeSinceLastFrame = 0;
+    
+        function animate() {
+
+            requestAnimationFrame(animate);
+
+            // just for fun, lets rotate mr rabbit a little
+            var now = Date.now();
+            timeSinceLastFrame = now - lastTime;
+            bunny.rotation += (timeSinceLastFrame/1000);
+            lastTime = now;
+
+            // render the stage
+            renderer.render(stage);
+        }
+    </script>
+
+    <button id="myButton" onClick="RequestFullscreen()" style="position:absolute;left:10px;top:5px;height:50px;opacity:0.5;">Go Fullscreen!</button>
+
+</body>
+
+</html>
