@@ -1,0 +1,31 @@
+{
+  name : "Pact with the devil"
+  properties : [
+    {name : "range", value: "10"},
+    {name : "effectiveness", value: "20"},
+    {name : "heal", value: "10"},
+    {name : "type", value: "unholy"},
+    {name : "base_dmg", value: "4"},
+    {name : "total_dmg", value: "{{base_dmg}} + Math.floor({{effectiveness}}*player.attr.int/100)"},
+  ]
+  description : '''All enemies in range {{range}} will take {{total_dmg}}dmg ({{base_dmg}} base damage + {{effectiveness}}% of {{type}} damage}}) if target dies you are being healed for {{heal}}% of his max HP.'''
+  handler : '''
+    return function(board, player){
+      board.selectInRange({
+        position: player.position,
+        range: {{range}},
+        type:"all"
+        }).forEach((target)->{
+          let dmg = {
+            source : player,
+            type : "unholy",
+            amount:
+            }
+          if(target.isLethalDmg(dmg)){
+            player.heal(0.1*target.attr.maxHp)
+          }
+          target.takeDmg(dmg);
+        }))
+    }
+  '''
+}
