@@ -1,21 +1,21 @@
-[
+export default bindings = [
   {
-    name : "move_up"
-    on_event : "move_up_row"
+    name : "move_up",
+    on_event : "move_up_row",
     trigger : {
-      type : "skill"
-      name : "move"
+      type : "skill",
+      name : "move",
       properties : {
         direction : "up"
       }
     }
-  }
+  },
   {
-    name : "move_down"
-    on_event : "move_down_row"
+    name : "move_down",
+    on_event : "move_down_row",
     trigger : {
-      type : "skill"
-      name : "move"
+      type : "skill",
+      name : "move",
       properties : {
         direction : "down"
       }
