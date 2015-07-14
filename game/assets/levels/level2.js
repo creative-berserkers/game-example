@@ -4,12 +4,22 @@ export default {
       wait : 5,
       spawn : [
         "goblin",
+        "goblin"
       ]
     },
     {
-      wait : 4,
+      wait : 2,
       spawn : [
         "goblin",
+        "orc"
+      ]
+    },
+    {
+      wait : 2,
+      spawn : [
+        "goblin",
+        "orc",
+        "orc",
         "goblin"
       ]
     }

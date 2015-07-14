@@ -1,24 +1,11 @@
-var System = require('systemjs');
-//import {Promise} from 'promise'
+var System = require('systemjs')
+var path = require('path')
+var Promise = require("bluebird");
+var fs = require("fs");
+Promise.promisifyAll(fs);
 
-export default function load(cb){
-  /*let allLevels = Promise.all([
+exports = function load(path){
+  fs.statAsync(path).then(function(stat){
 
-  ])
-
-  let allAssets = Promise.all([
-    allLevels
-  ]).then(function(assets){
-    console.log(assets)
-    cb(assets)
-  })*/
-
-  //System.transpiler = 'babel';
-
-  System.import(__dirname+'/../assets/levels/level1.js').then(function(data){
-    console.error('xxxx');
-    cb(data);
-  },function (e) {
-        console.error(e);
   })
 }

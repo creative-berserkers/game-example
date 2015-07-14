@@ -1,11 +1,15 @@
-import load from '../src/asset_loader'
+'use strict'
+var path = require('path')
+var load = require('../src/asset_loader')
 
 describe("A suite", function() {
   it("contains spec with an expectation", function(done) {
-    let level = load(function(){
+
+    var assetPath = path.normalize(__dirname,'/../assets/')
+
+    var level = load(assetPath).then(function(assets){
       //expect(level.waves.length).toBe(3);
-      console.error('test done');
+      console.error(assets)
       done(true)
     })
-  });
-});
+})
