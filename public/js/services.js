@@ -1,15 +1,7 @@
 angular.module('GameServices', ['ngCookies','ngWebSocket'])
-.service('nautilus', ['$rootScope', '$cookieStore', '$timeout', '$websocket', function($rootScope, $cookieStore, $timeout, $websocket) {
-    var index = {}
-    var session = undefined
-    var sessionCallbacks = []
-    
-    var uniqueId = '12345'
-    /*$cookieStore.get('uniqueId')
-    if(uniqueId === undefined){
-        $cookieStore.put('uniqueId', guid() )
-        uniqueId = $cookieStore.get('uniqueId')
-    }*/
+.service('nautilus', ['$rootScope', '$timeout', '$websocket', function($rootScope, $timeout, $websocket) {
+    var index = undefined
+    var indexCallbacks = []
     
     var angSocket = $websocket('wss://' + location.host)
     
@@ -36,24 +28,19 @@ angular.module('GameServices', ['ngCookies','ngWebSocket'])
         },
         onIndex : function(idx){
             console.log('received index object')
-            angular.copy(idx, index)
-            index.registerSession(uniqueId).then(function(ses){
-                session = ses
-                if(sessionCallbacks.length !== 0){
-                    sessionCallbacks.forEach(function(cb){
-                        cb(session)
-                    })
-                }
-                console.log('received session object')
+            index = idx
+            indexCallbacks.forEach(function(el){
+                el(index)
             })
+            indexCallbacks = []
         }
     })
     return {
-        session: function(cb){
-            if(session === undefined){
-                sessionCallbacks.push(cb)
+        index: function(cb){
+            if(index === undefined){
+                indexCallbacks.push(cb)
             } else {
-                cb(session)
+                cb(index)
             }
         }
     }
@@ -69,13 +56,19 @@ angular.module('GameServices', ['ngCookies','ngWebSocket'])
             return rememberMeEnabled
         },
         setRememberMeEnabled : function(flag){
-            $cookieStore.put('remember-me-enabled', flag)
+            $cookieStore.put('remember-me-enabled', flag === undefined? false : flag)
         },
         username : function(){
             return $cookieStore.get('username')
         },
         setUsername : function(username){
             $cookieStore.put('username', username)
+        },
+        uniqueId : function(){
+            return $cookieStore.get('uniqueId')
+        },
+        setUniqueId : function(uniqueId){
+            $cookieStore.put('uniqueId', uniqueId)
         }
     }
 }])

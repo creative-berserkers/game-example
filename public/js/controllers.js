@@ -6,7 +6,7 @@ angular.module('gameApp', ['GameServices', 'ngRoute'])
         controller: 'LoginCtrl',
         controllerAs: 'login'
       })
-      .when('/game/:gameId/home', {
+      .when('/game/home', {
         templateUrl: 'views/game-home.html',
         controller: 'GameHomeCtrl',
         controllerAs: 'gameHome'
@@ -17,29 +17,48 @@ angular.module('gameApp', ['GameServices', 'ngRoute'])
 
     $locationProvider.html5Mode(true);
   }])
-  .controller('GameController', ['$scope', '$location', 'nautilus', 'settings','game', function($scope, $location, nautilus, settings, game) {
+  .controller('GameController', ['$scope', '$location', 'nautilus', 'settings', function($scope, $location, nautilus, settings) {
+    $scope.index = {
+      players : []
+    }  
+    
+    nautilus.index(function(index) {
+      angular.copy(index,$scope.index)
+    });
+    
     $scope.join = function(username, rememberme) {
-      nautilus.session(function(session) {
-        session.join(username).then(function(g) {
-          game.init(g)
+      var uniqueId = settings.uniqueId()
+      if(uniqueId === undefined){
+        settings.setUniqueId( guid() )
+        uniqueId = settings.uniqueId()
+      } 
+       
+      nautilus.index(function(index) {
+        index.registerSession(uniqueId, username).then(function(){
           settings.setUsername(username)
           settings.setRememberMeEnabled(rememberme)
-          $location.path('/game/' + g.id + '/home')
+          $location.path('/game/home')
         })
       })
     }
+    
     if (settings.isRememberMeEnabled()) {
-      nautilus.session(function(session) {
-        session.join($scope.username).then(function(g) {
-          game.init(g)
-          $location.path('/game/' + g.id + '/home')
+      nautilus.index(function(index) {
+        index.registerSession(settings.uniqueId(), settings.username()).then(function(){
+          $location.path('/game/home')
         })
       })
     }
   }])
-  .controller('LoginCtrl', function($scope, $cookieStore, nautilus) {
+  .controller('LoginCtrl', function($scope, nautilus) {
 
   })
-  .controller('GameHomeCtrl', function($scope, $cookieStore, nautilus) {
-
+  .controller('GameHomeCtrl', function($scope, nautilus) {
+    $scope.index = {
+      players : []
+    } 
+    
+    nautilus.index(function(index) {
+      angular.copy(index,$scope.index)
+    })
   })
