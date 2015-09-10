@@ -16,10 +16,8 @@
     "url": "https://github.com/creative-berserkers/game-example/issues"
   },
   "devDependencies": {
-    "gulp": "^3.9.0",
-    "gulp-babel": "^5.1.0"
+    "webpack": "^1.12.1",
+    "webpack-dev-server": "^1.10.1"
   },
-  "dependencies": {
-    "bluebird": "^2.9.33"
-  }
+  "dependencies": {}
 }
