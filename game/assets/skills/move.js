@@ -1,4 +1,6 @@
-export default {
+'use strict'
+
+let self = module.exports = {
   properties : {
     direction: "up"
   },

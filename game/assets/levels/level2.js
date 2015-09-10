@@ -1,4 +1,6 @@
-export default {
+'use strict'
+
+const self = module.exports = {
   waves : [
     {
       wait : 5,

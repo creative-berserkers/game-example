@@ -1,11 +1,18 @@
 var System = require('systemjs')
 var path = require('path')
 var Promise = require("bluebird");
-var fs = require("fs");
-Promise.promisifyAll(fs);
+var fs = require("q-io/fs");
 
-exports = function load(path){
-  fs.statAsync(path).then(function(stat){
+System.transpiler = '';
 
-  })
+module.exports = {
+  levels: [
+    require("../assets/levels/level1.js"),
+    require("../assets/levels/level2.js")
+  ],
+  skills: [
+    require("../assets/skills/move.js"),
+    require("../assets/skills/pact_with_the_devil.js")
+  ],
+  bindings: require("../assets/bindings.js")
 }

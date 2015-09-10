@@ -1,4 +1,4 @@
-export default {
+module.exports =  {
   waves : [
     {
       wait : 5,

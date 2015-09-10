@@ -1,4 +1,6 @@
-export default bindings = [
+'use strict'
+
+let self = module.export = [
   {
     name : "move_up",
     on_event : "move_up_row",

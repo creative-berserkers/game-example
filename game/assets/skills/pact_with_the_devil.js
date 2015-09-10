@@ -1,4 +1,6 @@
-export default skill = {
+'use strict'
+
+let self = module.exports = {
   properties : {
     range: 10,
     effectiveness: 20,
@@ -17,7 +19,7 @@ export default skill = {
         position: player.position,
         range: this.properties.range,
         type:"all"
-      }).forEach((target)=>{
+      }).forEach(function(target){
           let dmg = {
             source : player,
             type : this.properties.type,

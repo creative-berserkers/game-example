@@ -1,4 +1,4 @@
-export default index = {
+exports = {
     monsters : [],
     endTurn(ctx) {
         console.log('turn ended');
