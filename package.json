@@ -20,6 +20,9 @@
     "gulp-babel": "^5.1.0"
   },
   "dependencies": {
-    "bluebird": "^2.9.33"
+    "bluebird": "^2.9.33",
+    "jasmine-node": "^1.14.5",
+    "q-io": "^1.13.1",
+    "systemjs": "^0.18.4"
   }
 }
