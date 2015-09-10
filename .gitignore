@@ -30,4 +30,7 @@ node_modules
 #c9
 .c9
 
+#webstorm
+.idea
+
 dist
