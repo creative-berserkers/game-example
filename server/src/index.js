@@ -4,6 +4,8 @@ let Server = require('cb-http-ws-server').Server
 let hyperion = require('cb-hyperion').hyperion
 
 hyperion({
-  wss : Server(),
+  wss : Server({
+    dirname : '/client'
+  }),
   index : index
 })

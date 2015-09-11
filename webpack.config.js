@@ -1,8 +1,8 @@
 module.exports = {
-    entry: "./public/js/game.js",
+    entry: "./client/js/game.js",
     output: {
         path: __dirname,
-        filename: "./public/bundle.js"
+        filename: "./client/bundle.js"
     },
     module: {
         loaders: [
@@ -10,7 +10,7 @@ module.exports = {
         ]
     },
     devServer: {
-        contentBase: "./public",
+        contentBase: "./client",
         noInfo: false, //  --no-info option
         hot: true,
         inline: true
