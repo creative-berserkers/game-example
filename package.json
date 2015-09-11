@@ -20,9 +20,8 @@
     "webpack-dev-server": "^1.10.1"
   },
   "dependencies": {
-    "bluebird": "^2.9.33",
-    "jasmine-node": "^1.14.5",
-    "q-io": "^1.13.1",
-    "systemjs": "^0.18.4"
+    "cb-http-ws-server": "0.0.15",
+    "cb-hyperion": "^1.4.2",
+    "jasmine-node": "^1.14.5"
   }
 }
