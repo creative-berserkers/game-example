@@ -42,9 +42,336 @@
 /************************************************************************/
 /******/ ([
 /* 0 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict'
+	/*global PIXI */
+	
+	const setup = __webpack_require__(1)
+	const createNautilusClient = __webpack_require__(4)
+	
+	document.addEventListener('DOMContentLoaded', function () {
+	
+	    const assets = {}
+	    const init = (stage) => {
+	        assets.bunny = new PIXI.Sprite(PIXI.Texture.fromImage("/assets/bunny.png"))
+	
+	        assets.bunny.anchor.x = 0.5
+	        assets.bunny.anchor.y = 0.5
+	
+	        assets.bunny.position.x = 50
+	        assets.bunny.position.y = 30
+	        stage.addChild(assets.bunny)
+	
+	        const board = new PIXI.Container()
+	
+	        createNautilusClient({
+	            host : 'ws://' + location.host,
+	            onIndex : function(model){
+	                console.log('received index object')
+	                console.log(model)
+	
+	                model.board.data.forEach((el, i)=>{
+	                    const tile = new PIXI.Sprite(PIXI.Texture.fromImage("/assets/bunny.png"))
+	                    tile.anchor.x = 0.5
+	                    tile.anchor.y = 0.5
+	                    tile.position.x = (i%model.board.width)*32
+	                    tile.position.y = Math.floor(i/model.board.width)*32
+	                    board.addChild(tile)
+	                })
+	
+	                stage.addChild(board)
+	            }
+	        })
+	    }
+	
+	    const update = (delta)=>{
+	        assets.bunny.rotation += (delta/1000)
+	    }
+	
+	    setup({
+	        init: init,
+	        update: update,
+	        viewport : {
+	            width : 1920,
+	            height : 1080
+	        },
+	        scale : 4
+	    })
+	});
+	
+
+
+/***/ },
+/* 1 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict'
+	/*global PIXI */
+	
+	const createOnResizeHandler = __webpack_require__(3)
+	const createGoFullscreenButton = __webpack_require__(2)
+	
+	module.exports = function setup(spec){
+	
+	    const initCb = spec.init || (()=>{})
+	    const updateCb = spec.update || (()=>{})
+	    const viewport = spec.viewport || {width : 1920, height : 1080}
+	    const scale = spec.scale
+	
+	    const ratio = viewport.width / viewport.height
+	    const renderer = new PIXI.autoDetectRenderer(viewport.width, viewport.height,{
+	        antialias : false
+	    })
+	    PIXI.SCALE_MODES.DEFAULT = PIXI.SCALE_MODES.NEAREST
+	
+	    const stage = new PIXI.Container()
+	
+	    stage.scale.x = scale
+	    stage.scale.y = scale
+	    stage.position.x = 0
+	    stage.position.y = 0
+	
+	    document.body.appendChild(renderer.view)
+	    document.body.appendChild(createGoFullscreenButton({
+	        canvas : renderer.view
+	    }))
+	
+	    window.onresize = createOnResizeHandler({
+	        canvas : renderer.view,
+	        ratio : ratio
+	    })
+	
+	    initCb(stage)
+	
+	    let lastTime = Date.now()
+	    let timeSinceLastFrame = 0
+	
+	    function animate() {
+	        requestAnimationFrame(animate)
+	        var now = Date.now()
+	        timeSinceLastFrame = now - lastTime
+	        updateCb(timeSinceLastFrame)
+	        lastTime = now
+	
+	        renderer.render(stage)
+	    }
+	    requestAnimationFrame(animate)
+	}
+
+
+/***/ },
+/* 2 */
 /***/ function(module, exports) {
 
-	document.write("It works test  xxx.");
+	'use strict'
+	
+	module.exports = function createGoFullscreenButton(spec){
+	
+	    const canvas = spec.canvas
+	    if(!canvas) {
+	        throw 'canvas must not be undefined or null'
+	    }
+	
+	    function RequestFullscreen(elem) {
+	        if (elem.requestFullscreen) {
+	            elem.requestFullscreen()
+	        }
+	        else if (elem.msRequestFullscreen) {
+	            elem.msRequestFullscreen()
+	        }
+	        else if (elem.mozRequestFullScreen) {
+	            elem.mozRequestFullScreen()
+	        }
+	        else if (elem.webkitRequestFullscreen) {
+	            elem.webkitRequestFullscreen()
+	        }
+	    }
+	
+	    var btn = document.createElement('BUTTON')
+	    var t = document.createTextNode('Go To Fullscreen')
+	    btn.appendChild(t)
+	    btn.onclick = function(){
+	        RequestFullscreen(canvas)
+	    }
+	    btn.style.position = 'absolute'
+	    btn.style.left = '10px'
+	    btn.style.top = '5px'
+	    btn.style.height = '50px'
+	    btn.style.opacity = '0.5'
+	    
+	    return btn
+	}
+
+/***/ },
+/* 3 */
+/***/ function(module, exports) {
+
+	'use strict'
+	
+	function resize(canvas, ratio) {
+	    let w = 0
+	    let h = 0
+	    let topOffset = 0
+	    let leftOffset = 0
+	    if (window.innerWidth / window.innerHeight >= ratio) {
+	        w = window.innerHeight * ratio
+	        h = window.innerHeight
+	        leftOffset = (window.innerWidth - w)/2
+	    } else {
+	        w = window.innerWidth
+	        h = window.innerWidth / ratio
+	        topOffset = (window.innerHeight - h)/2
+	    }
+	    canvas.style.width = w + 'px'
+	    canvas.style.height = h + 'px'
+	    canvas.style.marginTop = topOffset + 'px'
+	    canvas.style.marginLeft = leftOffset + 'px'
+	}
+	
+	module.exports = function createOnResizeHandler(spec){
+	    const canvas = spec.canvas
+	    if(!canvas) {
+	        throw 'canvas must not be undefined or null'
+	    }
+	    const ratio = spec.ratio
+	
+	    resize(canvas, ratio)
+	
+	    return function() {
+	        resize(canvas, ratio)
+	    }
+	}
+
+/***/ },
+/* 4 */
+/***/ function(module, exports) {
+
+	'use strict'
+	
+	module.exports = function(conf) {
+	    if(conf.onIndex === undefined) {
+	        throw new Error('onIndex must be callback')
+	    }
+	    var socket = conf.socket || new WebSocket(conf.host)
+	    var response = Object.create(null,{})
+	    var objects = Object.create(null,{})
+	    var id = 0
+	    var index = undefined
+	    
+	    function send(msg){
+	        console.log('=>')
+	        console.log(msg)
+	        socket.send(JSON.stringify(msg))
+	    }
+	
+	    function createProxyMethod(object, objectName, method) {
+	        var curr = object
+	        method.forEach(function(node) {
+	            if (curr[node] === undefined) {
+	                curr[node] = function() {
+	                    var currId = id++
+	
+	                    var promise = new Promise(function(resolve, reject) {
+	                        response[currId] = {
+	                            resolve: resolve,
+	                            reject: reject
+	                        }
+	                    })
+	                    var msg = {
+	                        type : 'object-call',    
+	                        path : method,
+	                        name : objectName,
+	                        id : currId,
+	                        args : Array.prototype.slice.call(arguments, 0)
+	                    }
+	                    send(msg)
+	                    return promise
+	                }
+	            }
+	            else {
+	                curr = curr[node]
+	            }
+	        })
+	
+	    }
+	    
+	    function applyChange(object, change){
+	        if(change.type === 'update'){
+	            var curr = object
+	            change.path.forEach(function(node){
+	                if(change.path[change.path.length-1] === node){
+	                    curr[node] = change.value
+	                }
+	                curr = curr[node]
+	            })
+	        } else if(change.type === 'splice'){
+	            var curr = object
+	            change.path.forEach(function(node){
+	                if(change.path[change.path.length-1] === node){
+	                    curr[node].splice.apply(curr[node],[change.index,change.removedCount].concat(change.added))
+	                }
+	                curr = curr[node]
+	            })
+	        }
+	    }
+	    
+	    function applyChanges(object, changes){
+	        changes.forEach(function(change){
+	            applyChange(object, change)
+	        })
+	    }
+	
+	    var client = {
+	        index: function() {
+	            return index
+	        }
+	    }
+	
+	    socket.onopen = function(event) {
+	        if (conf.onopen) conf.onopen(client);
+	    }
+	
+	    socket.onmessage = function(event) {
+	        function apply() {
+	            var msg = JSON.parse(event.data)
+	            console.log('<=')
+	            console.log(msg)
+	            if (msg.type === 'call-response') {
+	                if(msg.synced === true && objects[msg.resultName] === undefined){
+	                    msg.methods.forEach(function(method) {
+	                        createProxyMethod(msg.result, msg.resultName, method)
+	                    })
+	                    if(msg.resultName === 'index'){
+	                        conf.onIndex(msg.result)
+	                    }
+	                    objects[msg.resultName] = msg.result
+	                }
+	                
+	                if(response[msg.id] !== undefined){
+	                    response[msg.id].resolve(msg.result)
+	                    delete response[msg.id]
+	                }
+	            }
+	            if (msg.type === 'object-broadcast') {
+	                console.log('applying changes')
+	                var object = objects[msg.name]
+	                if(object){
+	                    applyChanges(object, msg.changes)
+	                } else {
+	                    console.log('object not found '+msg.name)
+	                }
+	            }
+	        }
+	        if (conf.onmessage) {
+	            conf.onmessage(apply)
+	        } else {
+	            apply()
+	        }
+	        
+	    }
+	    return client
+	}
 
 /***/ }
 /******/ ]);

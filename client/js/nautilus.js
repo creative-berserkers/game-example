@@ -1,6 +1,6 @@
-var Nautilus = Nautilus || {}
+'use strict'
 
-Nautilus.createClient = function(conf) {
+module.exports = function(conf) {
     if(conf.onIndex === undefined) {
         throw new Error('onIndex must be callback')
     }

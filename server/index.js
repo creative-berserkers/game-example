@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 'use strict'
-let index = require('./src/game_object')
+let index = require('./src/game_model')
 let Server = require('cb-http-ws-server')
 let hyperion = require('cb-hyperion').hyperion
 
