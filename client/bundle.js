@@ -53,30 +53,45 @@
 	document.addEventListener('DOMContentLoaded', function () {
 	
 	    const assets = {}
-	    const init = (stage) => {
-	        assets.bunny = new PIXI.Sprite(PIXI.Texture.fromImage("/assets/bunny.png"))
+	    const init = (stage, resources) => {
 	
-	        assets.bunny.anchor.x = 0.5
-	        assets.bunny.anchor.y = 0.5
-	
-	        assets.bunny.position.x = 50
-	        assets.bunny.position.y = 30
-	        stage.addChild(assets.bunny)
 	
 	        const board = new PIXI.Container()
+	        board.position.x = 48
+	        board.position.y = 48
 	
 	        createNautilusClient({
-	            host : 'ws://' + location.host,
-	            onIndex : function(model){
+	            host: 'ws://' + location.host,
+	            onIndex: function (model) {
 	                console.log('received index object')
 	                console.log(model)
 	
-	                model.board.data.forEach((el, i)=>{
-	                    const tile = new PIXI.Sprite(PIXI.Texture.fromImage("/assets/bunny.png"))
+	                model.board.data.forEach((el, i)=> {
+	
+	                    const tile = new PIXI.Container()
 	                    tile.anchor.x = 0.5
 	                    tile.anchor.y = 0.5
-	                    tile.position.x = (i%model.board.width)*32
-	                    tile.position.y = Math.floor(i/model.board.width)*32
+	                    tile.position.x = (i % model.board.width) * resources.floor.frameWidth
+	                    tile.position.y = Math.floor(i / model.board.width) * resources.floor.frameHeight
+	
+	                    if(el.data.layers.floor !== ''){
+	                        const sp = el.data.layers.floor.split('_')
+	                        const floor = new PIXI.Sprite(resources[sp[0]].frames[sp[1]])
+	                        tile.addChild(floor)
+	                    }
+	
+	                    if(el.data.layers.middle !== ''){
+	                        const sp = el.data.layers.middle.split('_')
+	                        const middle = new PIXI.Sprite(resources[sp[0]].frames[sp[1]])
+	                        tile.addChild(middle)
+	                    }
+	
+	                    if(el.data.layers.ceiling !== ''){
+	                        const sp = el.data.layers.middle.split('_')
+	                        const ceiling = new PIXI.Sprite(resources[sp[0]].frames[sp[1]])
+	                        tile.addChild(ceiling)
+	                    }
+	
 	                    board.addChild(tile)
 	                })
 	
@@ -85,18 +100,22 @@
 	        })
 	    }
 	
-	    const update = (delta)=>{
-	        assets.bunny.rotation += (delta/1000)
+	    const update = (delta)=> {
+	        //assets.bunny.rotation += (delta/1000)
 	    }
 	
 	    setup({
+	        assets: [{
+	            name: 'floor',
+	            url: '/assets/img/Objects/Floor.png'
+	        }],
 	        init: init,
 	        update: update,
-	        viewport : {
-	            width : 1920,
-	            height : 1080
+	        viewport: {
+	            width: 1920,
+	            height: 1080
 	        },
-	        scale : 4
+	        scale: 4
 	    })
 	});
 	
@@ -109,19 +128,22 @@
 	'use strict'
 	/*global PIXI */
 	
-	const createOnResizeHandler = __webpack_require__(3)
-	const createGoFullscreenButton = __webpack_require__(2)
+	const createOnResizeHandler = __webpack_require__(2)
+	const createGoFullscreenButton = __webpack_require__(3)
 	
-	module.exports = function setup(spec){
+	module.exports = function setup(spec) {
 	
-	    const initCb = spec.init || (()=>{})
-	    const updateCb = spec.update || (()=>{})
-	    const viewport = spec.viewport || {width : 1920, height : 1080}
+	    const assets = spec.assets || []
+	    const initCb = spec.init || (()=> {
+	        })
+	    const updateCb = spec.update || (()=> {
+	        })
+	    const viewport = spec.viewport || {width: 1920, height: 1080}
 	    const scale = spec.scale
 	
 	    const ratio = viewport.width / viewport.height
-	    const renderer = new PIXI.autoDetectRenderer(viewport.width, viewport.height,{
-	        antialias : false
+	    const renderer = new PIXI.autoDetectRenderer(viewport.width, viewport.height, {
+	        antialias: false
 	    })
 	    PIXI.SCALE_MODES.DEFAULT = PIXI.SCALE_MODES.NEAREST
 	
@@ -134,15 +156,36 @@
 	
 	    document.body.appendChild(renderer.view)
 	    document.body.appendChild(createGoFullscreenButton({
-	        canvas : renderer.view
+	        canvas: renderer.view
 	    }))
 	
 	    window.onresize = createOnResizeHandler({
-	        canvas : renderer.view,
-	        ratio : ratio
+	        canvas: renderer.view,
+	        ratio: ratio
 	    })
 	
-	    initCb(stage)
+	    assets.forEach((el)=> {
+	        PIXI.loader.add(el.name, el.url)
+	    })
+	
+	    PIXI.loader
+	        .on('progress', function (loader, loadedResource) {
+	            console.log('Progress:', loader.progress + '%');
+	        })
+	        .after(function (resource, next) {
+	            resource.frameWidth = 16
+	            resource.frameHeight = 16
+	            resource.frames = []
+	            for (let y = 0; y < resource.texture.height - resource.frameHeight; y += resource.frameHeight) {
+	                for (let x = 0; x < resource.texture.width - resource.frameWidth; x += resource.frameWidth) {
+	                    resource.frames.push(new PIXI.Texture(resource.texture.baseTexture, new PIXI.Rectangle(x, y, resource.frameWidth, resource.frameHeight)));
+	                }
+	            }
+	            next()
+	        })
+	        .load(function (loader, resources) {
+	            initCb(stage, resources)
+	        });
 	
 	    let lastTime = Date.now()
 	    let timeSinceLastFrame = 0
@@ -156,12 +199,53 @@
 	
 	        renderer.render(stage)
 	    }
+	
 	    requestAnimationFrame(animate)
 	}
 
 
 /***/ },
 /* 2 */
+/***/ function(module, exports) {
+
+	'use strict'
+	
+	function resize(canvas, ratio) {
+	    let w = 0
+	    let h = 0
+	    let topOffset = 0
+	    let leftOffset = 0
+	    if (window.innerWidth / window.innerHeight >= ratio) {
+	        w = window.innerHeight * ratio
+	        h = window.innerHeight
+	        leftOffset = (window.innerWidth - w)/2
+	    } else {
+	        w = window.innerWidth
+	        h = window.innerWidth / ratio
+	        topOffset = (window.innerHeight - h)/2
+	    }
+	    canvas.style.width = w + 'px'
+	    canvas.style.height = h + 'px'
+	    canvas.style.marginTop = topOffset + 'px'
+	    canvas.style.marginLeft = leftOffset + 'px'
+	}
+	
+	module.exports = function createOnResizeHandler(spec){
+	    const canvas = spec.canvas
+	    if(!canvas) {
+	        throw 'canvas must not be undefined or null'
+	    }
+	    const ratio = spec.ratio
+	
+	    resize(canvas, ratio)
+	
+	    return function() {
+	        resize(canvas, ratio)
+	    }
+	}
+
+/***/ },
+/* 3 */
 /***/ function(module, exports) {
 
 	'use strict'
@@ -201,46 +285,6 @@
 	    btn.style.opacity = '0.5'
 	    
 	    return btn
-	}
-
-/***/ },
-/* 3 */
-/***/ function(module, exports) {
-
-	'use strict'
-	
-	function resize(canvas, ratio) {
-	    let w = 0
-	    let h = 0
-	    let topOffset = 0
-	    let leftOffset = 0
-	    if (window.innerWidth / window.innerHeight >= ratio) {
-	        w = window.innerHeight * ratio
-	        h = window.innerHeight
-	        leftOffset = (window.innerWidth - w)/2
-	    } else {
-	        w = window.innerWidth
-	        h = window.innerWidth / ratio
-	        topOffset = (window.innerHeight - h)/2
-	    }
-	    canvas.style.width = w + 'px'
-	    canvas.style.height = h + 'px'
-	    canvas.style.marginTop = topOffset + 'px'
-	    canvas.style.marginLeft = leftOffset + 'px'
-	}
-	
-	module.exports = function createOnResizeHandler(spec){
-	    const canvas = spec.canvas
-	    if(!canvas) {
-	        throw 'canvas must not be undefined or null'
-	    }
-	    const ratio = spec.ratio
-	
-	    resize(canvas, ratio)
-	
-	    return function() {
-	        resize(canvas, ratio)
-	    }
 	}
 
 /***/ },

@@ -4,16 +4,19 @@
 const createOnResizeHandler = require('./core/createOnResizeHandler')
 const createGoFullscreenButton = require('./gui/createGoFullscreenButton')
 
-module.exports = function setup(spec){
+module.exports = function setup(spec) {
 
-    const initCb = spec.init || (()=>{})
-    const updateCb = spec.update || (()=>{})
-    const viewport = spec.viewport || {width : 1920, height : 1080}
+    const assets = spec.assets || []
+    const initCb = spec.init || (()=> {
+        })
+    const updateCb = spec.update || (()=> {
+        })
+    const viewport = spec.viewport || {width: 1920, height: 1080}
     const scale = spec.scale
 
     const ratio = viewport.width / viewport.height
-    const renderer = new PIXI.autoDetectRenderer(viewport.width, viewport.height,{
-        antialias : false
+    const renderer = new PIXI.autoDetectRenderer(viewport.width, viewport.height, {
+        antialias: false
     })
     PIXI.SCALE_MODES.DEFAULT = PIXI.SCALE_MODES.NEAREST
 
@@ -26,15 +29,36 @@ module.exports = function setup(spec){
 
     document.body.appendChild(renderer.view)
     document.body.appendChild(createGoFullscreenButton({
-        canvas : renderer.view
+        canvas: renderer.view
     }))
 
     window.onresize = createOnResizeHandler({
-        canvas : renderer.view,
-        ratio : ratio
+        canvas: renderer.view,
+        ratio: ratio
     })
 
-    initCb(stage)
+    assets.forEach((el)=> {
+        PIXI.loader.add(el.name, el.url)
+    })
+
+    PIXI.loader
+        .on('progress', function (loader, loadedResource) {
+            console.log('Progress:', loader.progress + '%');
+        })
+        .after(function (resource, next) {
+            resource.frameWidth = 16
+            resource.frameHeight = 16
+            resource.frames = []
+            for (let y = 0; y < resource.texture.height - resource.frameHeight; y += resource.frameHeight) {
+                for (let x = 0; x < resource.texture.width - resource.frameWidth; x += resource.frameWidth) {
+                    resource.frames.push(new PIXI.Texture(resource.texture.baseTexture, new PIXI.Rectangle(x, y, resource.frameWidth, resource.frameHeight)));
+                }
+            }
+            next()
+        })
+        .load(function (loader, resources) {
+            initCb(stage, resources)
+        });
 
     let lastTime = Date.now()
     let timeSinceLastFrame = 0
@@ -48,5 +72,6 @@ module.exports = function setup(spec){
 
         renderer.render(stage)
     }
+
     requestAnimationFrame(animate)
 }
