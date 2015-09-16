@@ -49,15 +49,19 @@ module.exports = function setup(spec) {
             resource.frameWidth = 16
             resource.frameHeight = 16
             resource.frames = []
-            for (let y = 0; y < resource.texture.height - resource.frameHeight; y += resource.frameHeight) {
-                for (let x = 0; x < resource.texture.width - resource.frameWidth; x += resource.frameWidth) {
+
+            const height = resource.texture.height - (resource.texture.height%resource.frameHeight === 0 ? 0:resource.frameHeight)
+            const width = resource.texture.width - (resource.texture.width%resource.frameHeight === 0 ? 0:resource.frameHeight)
+
+            for (let y = 0; y < height; y += resource.frameHeight) {
+                for (let x = 0; x < width; x += resource.frameWidth) {
                     resource.frames.push(new PIXI.Texture(resource.texture.baseTexture, new PIXI.Rectangle(x, y, resource.frameWidth, resource.frameHeight)));
                 }
             }
             next()
         })
         .load(function (loader, resources) {
-            initCb(stage, resources)
+            initCb(stage, resources, renderer)
         });
 
     let lastTime = Date.now()

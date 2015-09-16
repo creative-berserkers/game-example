@@ -18,6 +18,8 @@ function resize(canvas, ratio) {
     canvas.style.height = h + 'px'
     canvas.style.marginTop = topOffset + 'px'
     canvas.style.marginLeft = leftOffset + 'px'
+    //canvas.width = w;
+    //canvas.height = h;
 }
 
 module.exports = function createOnResizeHandler(spec){
