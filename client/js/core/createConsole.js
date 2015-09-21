@@ -1,13 +1,15 @@
 /**
  * Created by odrin on 14.09.2015.
  */
-"use strict";
+'use strict'
 /*global PIXI */
 /*global EZGUI */
 
 module.exports = function createConsole(spec){
-    const renderer = spec.renderer
-    const stage = spec.stage
+    const graphicsCtx = spec.graphicsCtx
+    const emiter = spec.emiter
+    const renderer = graphicsCtx.renderer
+    const stage = graphicsCtx.stage
     const numberOfLines = spec.numberOfLines || 11
     const maxLineLength = spec.maxLineLength || 60
 
@@ -26,7 +28,7 @@ module.exports = function createConsole(spec){
         guiConsole.addChild(line)
     }
 
-    var guiBtn = {
+    const guiBtn = {
         id: 'sendButton',
         text: 'Send',
         component: 'Button',
@@ -50,13 +52,13 @@ module.exports = function createConsole(spec){
         history.push(EZGUI.components.commandInput.text)
         historyPointer = history.length
         inputListener(EZGUI.components.commandInput.text)
-        EZGUI.components.commandInput.text = ""
+        EZGUI.components.commandInput.text = ''
     }
 
     EZGUI.renderer = renderer;
     EZGUI.Theme.load(['/assets/ezgui/kenney-theme/kenney-theme.json'], function () {
-        var sendBtn = EZGUI.create(guiBtn, 'kenney')
-        var inputBtn = EZGUI.create(guiInput, 'kenney')
+        const sendBtn = EZGUI.create(guiBtn, 'kenney')
+        const inputBtn = EZGUI.create(guiInput, 'kenney')
         EZGUI.components.sendButton.on('click', function (event) {
             commit()
         })
@@ -67,40 +69,37 @@ module.exports = function createConsole(spec){
     stage.addChild(guiConsole)
 
 
-    window.onkeyup = function(e) {
-        var key = e.keyCode ? e.keyCode : e.which
+    emiter.on('r4two:action:console',()=>{
+        guiConsole.visible = !guiConsole.visible
+        EZGUI.components.commandInput.text = ''
+    })
 
-        if (key === 192 /* ` */) {
-            e.preventDefault()
-            guiConsole.visible = !guiConsole.visible
-            EZGUI.components.commandInput.text = ""
+    emiter.on('r4two:action:accept',()=>{
+        commit()
+    })
+
+    emiter.on('r4two:action:up',()=>{
+        historyPointer--
+        if(history.length !== 0 && historyPointer < history.length && historyPointer >= 0){
+            EZGUI.components.commandInput.text = history[historyPointer]
+        } else {
+            historyPointer++
         }
-        else if (key === 13/*enter*/ && guiConsole.visible) {
-            e.preventDefault()
-            commit()
-        }
-        else if(key === 38 /*up*/) {
-            historyPointer--
-            if(history.length !== 0 && historyPointer < history.length && historyPointer >= 0){
+    })
+
+    emiter.on('r4two:action:down',()=>{
+        historyPointer++
+        if(history.length !== 0 && historyPointer >= 0){
+            if(historyPointer < history.length){
                 EZGUI.components.commandInput.text = history[historyPointer]
             } else {
-                historyPointer++
+                EZGUI.components.commandInput.text = ''
+                historyPointer = history.length
             }
+        } else {
+            historyPointer--
         }
-        else if(key === 40 /* down */){
-            historyPointer++
-            if(history.length !== 0 && historyPointer >= 0){
-                if(historyPointer < history.length){
-                    EZGUI.components.commandInput.text = history[historyPointer]
-                } else {
-                    EZGUI.components.commandInput.text = ''
-                    historyPointer = history.length
-                }
-            } else {
-                historyPointer--
-            }
-        }
-    }
+    })
 
     const write = (text)=>{
         for(let i=lines.length-1; i>0;--i){

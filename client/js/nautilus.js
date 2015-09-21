@@ -4,11 +4,11 @@ module.exports = function(conf) {
     if(conf.onIndex === undefined) {
         throw new Error('onIndex must be callback')
     }
-    var socket = conf.socket || new WebSocket(conf.host)
-    var response = Object.create(null,{})
-    var objects = Object.create(null,{})
-    var id = 0
-    var index = undefined
+    const socket = conf.socket || new WebSocket(conf.host)
+    const response = Object.create(null,{})
+    const objects = Object.create(null,{})
+    let id = 0
+    let index
     
     function send(msg){
         console.log('=>')
@@ -17,19 +17,19 @@ module.exports = function(conf) {
     }
 
     function createProxyMethod(object, objectName, method) {
-        var curr = object
+        let curr = object
         method.forEach(function(node) {
             if (curr[node] === undefined) {
                 curr[node] = function() {
-                    var currId = id++
+                    const currId = id++
 
-                    var promise = new Promise(function(resolve, reject) {
+                    const promise = new Promise(function(resolve, reject) {
                         response[currId] = {
                             resolve: resolve,
                             reject: reject
                         }
                     })
-                    var msg = {
+                    const msg = {
                         type : 'object-call',    
                         path : method,
                         name : objectName,
@@ -49,7 +49,7 @@ module.exports = function(conf) {
     
     function applyChange(object, change){
         if(change.type === 'update'){
-            var curr = object
+            let curr = object
             change.path.forEach(function(node){
                 if(change.path[change.path.length-1] === node){
                     curr[node] = change.value
@@ -57,7 +57,7 @@ module.exports = function(conf) {
                 curr = curr[node]
             })
         } else if(change.type === 'splice'){
-            var curr = object
+            let curr = object
             change.path.forEach(function(node){
                 if(change.path[change.path.length-1] === node){
                     curr[node].splice.apply(curr[node],[change.index,change.removedCount].concat(change.added))
@@ -73,19 +73,21 @@ module.exports = function(conf) {
         })
     }
 
-    var client = {
+    const client = {
         index: function() {
             return index
         }
     }
 
-    socket.onopen = function(event) {
-        if (conf.onopen) conf.onopen(client);
+    socket.onopen = function() {
+        if (conf.onopen) {
+            conf.onopen(client)
+        }
     }
 
     socket.onmessage = function(event) {
         function apply() {
-            var msg = JSON.parse(event.data)
+            let msg = JSON.parse(event.data)
             console.log('<=')
             console.log(msg)
             if (msg.type === 'call-response') {
@@ -106,7 +108,7 @@ module.exports = function(conf) {
             }
             if (msg.type === 'object-broadcast') {
                 console.log('applying changes')
-                var object = objects[msg.name]
+                const object = objects[msg.name]
                 if(object){
                     applyChanges(object, msg.changes)
                 } else {

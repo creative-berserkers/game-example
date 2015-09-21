@@ -2,15 +2,55 @@
 /*global PIXI */
 
 module.exports = function createBoard(spec){
-    const model = spec.model
-    const debug = spec.debug
-    const resources = spec.resources
-    const stage = spec.stage;
+    const clientCtx = spec.clientCtx
+    const graphicsCtx = spec.graphicsCtx
+    const emiter = spec.emiter
 
+    const model = clientCtx.model
+
+    const resources = graphicsCtx.resources
+    const stage = graphicsCtx.stage;
+
+    const debug = true
     const board = new PIXI.Container()
 
     board.position.x = 48
     board.position.y = 48
+    board.hitArea = new PIXI.Rectangle(0, 0, model.board.width*resources.floor.frameWidth, model.board.height*resources.floor.frameWidth);
+    board.interactive = true
+    board.buttonMode = true
+    board.on('mousedown', (mouseData)=>{
+        const pos = mouseData.data.getLocalPosition(board)
+        const x = Math.floor(pos.x  / resources.floor.frameWidth)
+        const y = Math.floor(pos.y / resources.floor.frameWidth)
+        const tile = model.board.data[y*model.board.width+x]
+        emiter.emit('r4two:board:tileselect',{
+            position : {
+                x : x,
+                y : y,
+            },
+            obstacle : tile.obstacle
+        })
+    })
+
+    const createTileLayer = (data, name, tile, i) => {
+        if(data === ''){
+            data = 'wall_5'
+        }
+        const sp = data.split('_')
+        const ceiling = new PIXI.Sprite(resources[sp[0]].frames[sp[1]])
+
+        clientCtx.createChangeListener({
+            path:['board','data',i.toString(),'layers',name],
+            onChange : (path, oldValue, newValue, next)=>{
+                const sp = newValue.split('_')
+                ceiling.texture = resources[sp[0]].frames[sp[1]]
+                next()
+            }
+        })
+
+        tile.addChild(ceiling)
+    }
 
     model.board.data.forEach((el, i)=> {
 
@@ -18,26 +58,22 @@ module.exports = function createBoard(spec){
         tile.position.x = (i % model.board.width) * resources.floor.frameWidth
         tile.position.y = Math.floor(i / model.board.width) * resources.floor.frameHeight
 
-        if(el.layers.floor !== ''){
-            const sp = el.layers.floor.split('_')
-            const floor = new PIXI.Sprite(resources[sp[0]].frames[sp[1]])
-            tile.addChild(floor)
-        }
+        createTileLayer(el.layers.floor, 'floor', tile, i)
+        createTileLayer(el.layers.middle, 'middle', tile, i)
+        createTileLayer(el.layers.ceiling, 'ceiling', tile, i)
 
-        if(el.layers.middle !== ''){
-            const sp = el.layers.middle.split('_')
-            const middle = new PIXI.Sprite(resources[sp[0]].frames[sp[1]])
-            tile.addChild(middle)
-        }
+        if(debug === true){
+            const texObst = resources.debug.frames[0]
+            const texNonObst = resources.wall.frames[5]
 
-        if(el.layers.ceiling !== ''){
-            const sp = el.layers.middle.split('_')
-            const ceiling = new PIXI.Sprite(resources[sp[0]].frames[sp[1]])
-            tile.addChild(ceiling)
-        }
-
-        if(debug === true && el.obstacle === true){
-            const debug = new PIXI.Sprite(resources.debug.frames[0])
+            const debug = new PIXI.Sprite(el.obstacle ? texObst : texNonObst)
+            clientCtx.createChangeListener({
+                path:['board','data',i.toString(),'obstacle'],
+                onChange : (path, oldValue, newValue, next)=>{
+                    debug.texture = newValue ? texObst : texNonObst
+                    next()
+                }
+            })
             tile.addChild(debug)
         }
 

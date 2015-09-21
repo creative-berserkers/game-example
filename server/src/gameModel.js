@@ -1,6 +1,6 @@
 'use strict'
 
-var fs = require('fs');
+const fs = require('fs');
 
 const defaultBoardWidth = 25
 const defaultBoardHeight = 12
@@ -75,8 +75,29 @@ const model = {
     createBoard(){
         return 'board created'
     },
-    setTileTex(spec){
-        return 'tile set to' + JSON.stringify(spec)
+    setTileTex(ctx, spec){
+        const pos = {
+            x : Number(spec.position.x),
+            y : Number(spec.position.y)
+        }
+        const layer = spec.layer
+        const tex = spec.newTex
+
+        const tile = model.board.data[model.board.width*pos.y + pos.x]
+
+        tile.layers[layer] = tex
+        return `tile ${pos.x},${pos.y} on layer ${layer} set to ${tex}`
+    },
+    setTileObstacle(ctx, spec){
+        const pos = {
+            x : Number(spec.position.x),
+            y : Number(spec.position.y)
+        }
+        const obstacle = spec.obstacle
+
+        const tile = model.board.data[model.board.width*pos.y + pos.x]
+        tile.obstacle = obstacle
+        return `tile ${pos.x},${pos.y} obstacle set to ${obstacle}}`
     }
 }
 

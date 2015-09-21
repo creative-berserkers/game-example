@@ -28,9 +28,9 @@ module.exports = function setup(spec) {
     stage.position.y = 0
 
     document.body.appendChild(renderer.view)
-    document.body.appendChild(createGoFullscreenButton({
+    /*document.body.appendChild(createGoFullscreenButton({
         canvas: renderer.view
-    }))
+    }))*/
 
     window.onresize = createOnResizeHandler({
         canvas: renderer.view,
@@ -61,7 +61,11 @@ module.exports = function setup(spec) {
             next()
         })
         .load(function (loader, resources) {
-            initCb(stage, resources, renderer)
+            initCb({
+                stage : stage,
+                resources : resources,
+                renderer : renderer
+            })
         });
 
     let lastTime = Date.now()
@@ -69,7 +73,7 @@ module.exports = function setup(spec) {
 
     function animate() {
         requestAnimationFrame(animate)
-        var now = Date.now()
+        let now = Date.now()
         timeSinceLastFrame = now - lastTime
         updateCb(timeSinceLastFrame)
         lastTime = now

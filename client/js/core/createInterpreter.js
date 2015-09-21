@@ -5,7 +5,8 @@
 
 module.exports = function createInterpreter(spec){
 
-    const model = spec.model
+    const clientCtx = spec.clientCtx
+    const model = clientCtx.model
 
     const commands = new Map()
     const Any = Symbol()

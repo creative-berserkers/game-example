@@ -47,47 +47,64 @@
 	'use strict'
 	/*global PIXI */
 	
-	const setup = __webpack_require__(1)
-	const createNautilusClient = __webpack_require__(4)
-	const createBoard = __webpack_require__(5)
-	const createConsole = __webpack_require__(6)
-	const createInterpreter = __webpack_require__(7)
+	const EventEmitter = __webpack_require__(1);
+	const setupGame = __webpack_require__(2)
+	const createKeyboardMappings = __webpack_require__(5)
+	const createHyperionClient = __webpack_require__(6).createHyperionClient
+	const createBoard = __webpack_require__(13)
+	const createConsole = __webpack_require__(14)
+	const createEditor = __webpack_require__(15)
+	const createInterpreter = __webpack_require__(18)
 	
 	document.addEventListener('DOMContentLoaded', function () {
 	
 	    const debug = true
-	    const init = (stage, resources, renderer) => {
-	        createNautilusClient({
-	            host: 'ws://' + location.host,
-	            onIndex: function (model) {
-	                const board = createBoard({
-	                    model: model,
-	                    resources: resources,
-	                    debug : debug,
-	                    stage : stage
-	                })
+	    const init = (graphicsCtx) => {
+	        let client = createHyperionClient({
+	            host: 'ws://' + location.host
+	        })
+	
+	        const emiter = new EventEmitter()
+	
+	        createKeyboardMappings({
+	            emiter: emiter
+	        })
+	
+	        client.then((clientCtx) => {
+	            createBoard({
+	                clientCtx : clientCtx,
+	                graphicsCtx : graphicsCtx,
+	                emiter : emiter
+	            })
 	
 	
-	                const guiConsole = createConsole({
-	                    renderer : renderer,
-	                    stage : stage
-	                })
+	            const guiConsole = createConsole({
+	                graphicsCtx : graphicsCtx,
+	                emiter : emiter
+	            })
 	
-	                const interpreter = createInterpreter({
-	                    model: model
-	                })
+	            const interpreter = createInterpreter({
+	                clientCtx: clientCtx
+	            })
 	
-	                guiConsole.setInputListener((command)=>{
-	                    const result = interpreter.interpret(command)
-	                    if(result instanceof Promise){
-	                        result.then((r)=>{
-	                            guiConsole.writeLine(r)
-	                        })
-	                    } else {
-	                        guiConsole.writeLine(result)
-	                    }
-	                })
-	            }
+	            guiConsole.setInputListener((command)=>{
+	                const result = interpreter.interpret(command)
+	                if(result instanceof Promise){
+	                    result.then((r)=>{
+	                        guiConsole.writeLine(r)
+	                    })
+	                } else {
+	                    guiConsole.writeLine(result)
+	                }
+	            })
+	
+	            const editor = createEditor({
+	                graphicsCtx : graphicsCtx,
+	                clientCtx : clientCtx,
+	                emiter : emiter
+	            })
+	        },(error)=>{
+	            console.log(error)
 	        })
 	    }
 	
@@ -95,7 +112,7 @@
 	        //assets.bunny.rotation += (delta/1000)
 	    }
 	
-	    setup({
+	    setupGame({
 	        assets: [
 	            {
 	                name: 'floor',
@@ -112,6 +129,10 @@
 	            {
 	                name: 'warrior',
 	                url: '/assets/img/Commissions/Warrior.png'
+	            },
+	            {
+	                name: 'editor',
+	                url: '/assets/img/Editor/EditorControls.png'
 	            }
 	        ],
 	        init: init,
@@ -130,11 +151,279 @@
 /* 1 */
 /***/ function(module, exports, __webpack_require__) {
 
+	'use strict';
+	
+	//
+	// We store our EE objects in a plain object whose properties are event names.
+	// If `Object.create(null)` is not supported we prefix the event names with a
+	// `~` to make sure that the built-in object properties are not overridden or
+	// used as an attack vector.
+	// We also assume that `Object.create(null)` is available when the event name
+	// is an ES6 Symbol.
+	//
+	var prefix = typeof Object.create !== 'function' ? '~' : false;
+	
+	/**
+	 * Representation of a single EventEmitter function.
+	 *
+	 * @param {Function} fn Event handler to be called.
+	 * @param {Mixed} context Context for function execution.
+	 * @param {Boolean} once Only emit once
+	 * @api private
+	 */
+	function EE(fn, context, once) {
+	  this.fn = fn;
+	  this.context = context;
+	  this.once = once || false;
+	}
+	
+	/**
+	 * Minimal EventEmitter interface that is molded against the Node.js
+	 * EventEmitter interface.
+	 *
+	 * @constructor
+	 * @api public
+	 */
+	function EventEmitter() { /* Nothing to set */ }
+	
+	/**
+	 * Holds the assigned EventEmitters by name.
+	 *
+	 * @type {Object}
+	 * @private
+	 */
+	EventEmitter.prototype._events = undefined;
+	
+	/**
+	 * Return a list of assigned event listeners.
+	 *
+	 * @param {String} event The events that should be listed.
+	 * @param {Boolean} exists We only need to know if there are listeners.
+	 * @returns {Array|Boolean}
+	 * @api public
+	 */
+	EventEmitter.prototype.listeners = function listeners(event, exists) {
+	  var evt = prefix ? prefix + event : event
+	    , available = this._events && this._events[evt];
+	
+	  if (exists) return !!available;
+	  if (!available) return [];
+	  if (available.fn) return [available.fn];
+	
+	  for (var i = 0, l = available.length, ee = new Array(l); i < l; i++) {
+	    ee[i] = available[i].fn;
+	  }
+	
+	  return ee;
+	};
+	
+	/**
+	 * Emit an event to all registered event listeners.
+	 *
+	 * @param {String} event The name of the event.
+	 * @returns {Boolean} Indication if we've emitted an event.
+	 * @api public
+	 */
+	EventEmitter.prototype.emit = function emit(event, a1, a2, a3, a4, a5) {
+	  var evt = prefix ? prefix + event : event;
+	
+	  if (!this._events || !this._events[evt]) return false;
+	
+	  var listeners = this._events[evt]
+	    , len = arguments.length
+	    , args
+	    , i;
+	
+	  if ('function' === typeof listeners.fn) {
+	    if (listeners.once) this.removeListener(event, listeners.fn, undefined, true);
+	
+	    switch (len) {
+	      case 1: return listeners.fn.call(listeners.context), true;
+	      case 2: return listeners.fn.call(listeners.context, a1), true;
+	      case 3: return listeners.fn.call(listeners.context, a1, a2), true;
+	      case 4: return listeners.fn.call(listeners.context, a1, a2, a3), true;
+	      case 5: return listeners.fn.call(listeners.context, a1, a2, a3, a4), true;
+	      case 6: return listeners.fn.call(listeners.context, a1, a2, a3, a4, a5), true;
+	    }
+	
+	    for (i = 1, args = new Array(len -1); i < len; i++) {
+	      args[i - 1] = arguments[i];
+	    }
+	
+	    listeners.fn.apply(listeners.context, args);
+	  } else {
+	    var length = listeners.length
+	      , j;
+	
+	    for (i = 0; i < length; i++) {
+	      if (listeners[i].once) this.removeListener(event, listeners[i].fn, undefined, true);
+	
+	      switch (len) {
+	        case 1: listeners[i].fn.call(listeners[i].context); break;
+	        case 2: listeners[i].fn.call(listeners[i].context, a1); break;
+	        case 3: listeners[i].fn.call(listeners[i].context, a1, a2); break;
+	        default:
+	          if (!args) for (j = 1, args = new Array(len -1); j < len; j++) {
+	            args[j - 1] = arguments[j];
+	          }
+	
+	          listeners[i].fn.apply(listeners[i].context, args);
+	      }
+	    }
+	  }
+	
+	  return true;
+	};
+	
+	/**
+	 * Register a new EventListener for the given event.
+	 *
+	 * @param {String} event Name of the event.
+	 * @param {Functon} fn Callback function.
+	 * @param {Mixed} context The context of the function.
+	 * @api public
+	 */
+	EventEmitter.prototype.on = function on(event, fn, context) {
+	  var listener = new EE(fn, context || this)
+	    , evt = prefix ? prefix + event : event;
+	
+	  if (!this._events) this._events = prefix ? {} : Object.create(null);
+	  if (!this._events[evt]) this._events[evt] = listener;
+	  else {
+	    if (!this._events[evt].fn) this._events[evt].push(listener);
+	    else this._events[evt] = [
+	      this._events[evt], listener
+	    ];
+	  }
+	
+	  return this;
+	};
+	
+	/**
+	 * Add an EventListener that's only called once.
+	 *
+	 * @param {String} event Name of the event.
+	 * @param {Function} fn Callback function.
+	 * @param {Mixed} context The context of the function.
+	 * @api public
+	 */
+	EventEmitter.prototype.once = function once(event, fn, context) {
+	  var listener = new EE(fn, context || this, true)
+	    , evt = prefix ? prefix + event : event;
+	
+	  if (!this._events) this._events = prefix ? {} : Object.create(null);
+	  if (!this._events[evt]) this._events[evt] = listener;
+	  else {
+	    if (!this._events[evt].fn) this._events[evt].push(listener);
+	    else this._events[evt] = [
+	      this._events[evt], listener
+	    ];
+	  }
+	
+	  return this;
+	};
+	
+	/**
+	 * Remove event listeners.
+	 *
+	 * @param {String} event The event we want to remove.
+	 * @param {Function} fn The listener that we need to find.
+	 * @param {Mixed} context Only remove listeners matching this context.
+	 * @param {Boolean} once Only remove once listeners.
+	 * @api public
+	 */
+	EventEmitter.prototype.removeListener = function removeListener(event, fn, context, once) {
+	  var evt = prefix ? prefix + event : event;
+	
+	  if (!this._events || !this._events[evt]) return this;
+	
+	  var listeners = this._events[evt]
+	    , events = [];
+	
+	  if (fn) {
+	    if (listeners.fn) {
+	      if (
+	           listeners.fn !== fn
+	        || (once && !listeners.once)
+	        || (context && listeners.context !== context)
+	      ) {
+	        events.push(listeners);
+	      }
+	    } else {
+	      for (var i = 0, length = listeners.length; i < length; i++) {
+	        if (
+	             listeners[i].fn !== fn
+	          || (once && !listeners[i].once)
+	          || (context && listeners[i].context !== context)
+	        ) {
+	          events.push(listeners[i]);
+	        }
+	      }
+	    }
+	  }
+	
+	  //
+	  // Reset the array, or remove it completely if we have no more listeners.
+	  //
+	  if (events.length) {
+	    this._events[evt] = events.length === 1 ? events[0] : events;
+	  } else {
+	    delete this._events[evt];
+	  }
+	
+	  return this;
+	};
+	
+	/**
+	 * Remove all listeners or only the listeners for the specified event.
+	 *
+	 * @param {String} event The event want to remove all listeners for.
+	 * @api public
+	 */
+	EventEmitter.prototype.removeAllListeners = function removeAllListeners(event) {
+	  if (!this._events) return this;
+	
+	  if (event) delete this._events[prefix ? prefix + event : event];
+	  else this._events = prefix ? {} : Object.create(null);
+	
+	  return this;
+	};
+	
+	//
+	// Alias methods names because people roll like that.
+	//
+	EventEmitter.prototype.off = EventEmitter.prototype.removeListener;
+	EventEmitter.prototype.addListener = EventEmitter.prototype.on;
+	
+	//
+	// This function doesn't apply anymore.
+	//
+	EventEmitter.prototype.setMaxListeners = function setMaxListeners() {
+	  return this;
+	};
+	
+	//
+	// Expose the prefix.
+	//
+	EventEmitter.prefixed = prefix;
+	
+	//
+	// Expose the module.
+	//
+	if (true) {
+	  module.exports = EventEmitter;
+	}
+
+
+/***/ },
+/* 2 */
+/***/ function(module, exports, __webpack_require__) {
+
 	'use strict'
 	/*global PIXI */
 	
-	const createOnResizeHandler = __webpack_require__(2)
-	const createGoFullscreenButton = __webpack_require__(3)
+	const createOnResizeHandler = __webpack_require__(3)
+	const createGoFullscreenButton = __webpack_require__(4)
 	
 	module.exports = function setup(spec) {
 	
@@ -160,9 +449,9 @@
 	    stage.position.y = 0
 	
 	    document.body.appendChild(renderer.view)
-	    document.body.appendChild(createGoFullscreenButton({
+	    /*document.body.appendChild(createGoFullscreenButton({
 	        canvas: renderer.view
-	    }))
+	    }))*/
 	
 	    window.onresize = createOnResizeHandler({
 	        canvas: renderer.view,
@@ -193,7 +482,11 @@
 	            next()
 	        })
 	        .load(function (loader, resources) {
-	            initCb(stage, resources, renderer)
+	            initCb({
+	                stage : stage,
+	                resources : resources,
+	                renderer : renderer
+	            })
 	        });
 	
 	    let lastTime = Date.now()
@@ -201,7 +494,7 @@
 	
 	    function animate() {
 	        requestAnimationFrame(animate)
-	        var now = Date.now()
+	        let now = Date.now()
 	        timeSinceLastFrame = now - lastTime
 	        updateCb(timeSinceLastFrame)
 	        lastTime = now
@@ -214,7 +507,7 @@
 
 
 /***/ },
-/* 2 */
+/* 3 */
 /***/ function(module, exports) {
 
 	'use strict'
@@ -256,7 +549,7 @@
 	}
 
 /***/ },
-/* 3 */
+/* 4 */
 /***/ function(module, exports) {
 
 	'use strict'
@@ -299,21 +592,704 @@
 	}
 
 /***/ },
-/* 4 */
+/* 5 */
+/***/ function(module, exports) {
+
+	/**
+	 * Created by odrin on 21.09.2015.
+	 */
+	'use strict'
+	
+	module.exports = function createKeyboardMappings(spec){
+	    const emiter = spec.emiter
+	
+	    const keyboardMappings = [
+	        {
+	            keyboardCode : 54,
+	            eventToEmit : 'r4two:action:tile-editor'
+	        },
+	        {
+	            keyboardCode : 55,
+	            eventToEmit : 'r4two:action:obstacle-editor'
+	        },
+	        {
+	            keyboardCode : 192,
+	            eventToEmit : 'r4two:action:console'
+	        },
+	        {
+	            keyboardCode : 13,
+	            eventToEmit : 'r4two:action:accept'
+	        },
+	        {
+	            keyboardCode : 38,
+	            eventToEmit : 'r4two:action:up'
+	        },
+	        {
+	            keyboardCode : 40,
+	            eventToEmit : 'r4two:action:down'
+	        }
+	    ]
+	
+	    window.onkeyup = function(e) {
+	        const key = e.keyCode ? e.keyCode : e.which
+	
+	        keyboardMappings.forEach((el)=>{
+	            if(el.keyboardCode === key){
+	                emiter.emit(el.eventToEmit)
+	            }
+	        })
+	    }
+	}
+
+/***/ },
+/* 6 */
+/***/ function(module, exports, __webpack_require__) {
+
+	const Multiobserve = __webpack_require__(7).Multiobserve
+	const validateMessage = __webpack_require__(8).validateMessage
+	const createObjectStore = __webpack_require__(9).createObjectStore
+	const guid = __webpack_require__(10).guid
+	
+	exports.createHyperionClient = __webpack_require__(11)
+	exports.hyperion = function(spec) {
+	
+	    if(spec.wss === undefined){
+	        throw new Error('No socket found, please specify wss')
+	    }
+	    
+	    function send(ws, object) {
+	        ws.send(JSON.stringify(object))
+	    }
+	
+	    const objectStore = createObjectStore((objRecord, changes) => {
+	        const msg = JSON.stringify({
+	            type: 'object-broadcast',
+	            name: objRecord.name,
+	            changes: changes
+	        })
+	        objRecord.bindings.forEach((ws) => {
+	            ws.send(msg)
+	        })
+	    })
+	    const newConnectionFn = spec.newConnectionFn
+	    const errorFn = spec.errorFn
+	    const wss = spec.wss
+	    const index = spec.index
+	    
+	    objectStore.registerObject(index,0, 'index')
+	
+	    wss.on('connection', (ws) => {
+	        if (typeof newConnectionFn === 'function') {
+	            newConnectionFn(ws)
+	        }
+	
+	        objectStore.bind(index, ws)
+	
+	        const name = guid()
+	        const ctx = Object.freeze({
+	            name,
+	            sendMessage: (adress, msg) => {
+	                ws.send(ws, {
+	                    type: 'message',
+	                    adress: adress,
+	                    message: msg
+	                })
+	            },
+	            sync: (object) =>{
+	                objectStore.bind(object, ws)
+	            },
+	            unsync: (object) => {
+	                objectStore.unbind(object, ws)
+	            },
+	            onDisconnect: (callback)=>{
+	                ws.on('close', function close() {
+	                    callback()
+	                })
+	            },
+	            disconnect: ()=>{
+	                if(ws._socket !== null){
+	                    ws._socket.server.close()
+	                }
+	            }
+	        })
+	
+	        ws.on('message', (message) => {
+	            try {
+	                var validMessage = validateMessage(JSON.parse(message))
+	                if (validMessage.type === 'object-call') {
+	                    handleObjectCall(ws, ctx, validMessage)
+	                }
+	            }
+	            catch (e) {
+	                console.log(e)
+	            }
+	        })
+	
+	        ws.on('close', function close() {
+	            objectStore.allBindObjects(ws).forEach((ob) => {
+	                objectStore.unbind(ob, ws)
+	            })
+	        })
+	        
+	        handleMethodResult(ws, 'index' , -1, index)
+	    })
+	
+	
+	    function handleObjectCall(ws,ctx, msg) {
+	        var obj= objectStore.lookupByName(msg.name)
+	        if (obj === undefined) return
+	
+	        const node = Multiobserve.findNode(obj, msg.path)
+	
+	        if (node !== undefined && typeof node === 'function') {
+	            const result = node.apply(obj, [ctx].concat(msg.args))
+	            if (result instanceof Promise) {
+	                result.then(function(result) {
+	                    handleMethodResult(ws, msg.name, msg.id, result)
+	                })
+	            }
+	            else {
+	                handleMethodResult(ws, msg.name, msg.id, result)
+	            }
+	        }
+	    }
+	
+	    function handleMethodResult(ws, name, id, result) {
+	        const objectRecord = objectStore.lookupByObject(result)
+	        if (objectRecord !== undefined) {
+	            send(ws, {
+	                type: 'call-response',
+	                name: name,
+	                id: id,
+	                synced: true,
+	                methods: objectRecord.methods,
+	                result: objectRecord.object,
+	                resultName: objectRecord.name
+	            })
+	        } else {
+	            send(ws, {
+	                type: 'call-response',
+	                name: name,
+	                id: id,
+	                synced: false,
+	                result: result
+	            })
+	        }
+	    }
+	
+	    return Object.freeze({
+	        syncObject(object, lifetime){
+	            return objectStore.registerObject(object, lifetime)
+	        },
+	        unsyncObject(object){
+	            return objectStore.unregisterObject(object)
+	        }
+	    })
+	}
+
+/***/ },
+/* 7 */
 /***/ function(module, exports) {
 
 	'use strict'
 	
-	module.exports = function(conf) {
-	    if(conf.onIndex === undefined) {
-	        throw new Error('onIndex must be callback')
+	const objects = new WeakMap()
+	
+	function typeOf(value) {
+	    let s = typeof value;
+	    if (s === 'object') {
+	        if (value) {
+	            if (value instanceof Array) {
+	                s = 'array'
+	            }
+	        }
+	        else {
+	            s = 'null';
+	        }
 	    }
-	    var socket = conf.socket || new WebSocket(conf.host)
-	    var response = Object.create(null,{})
-	    var objects = Object.create(null,{})
-	    var id = 0
-	    var index = undefined
+	    return s;
+	}
+	
+	function observeObject(ctx, object, path) {
+	    let func = function (changes) {
+	        changes.forEach(function(change) {
+	            ctx.notify({
+	                path: path.concat(change.name),
+	                node: change.object,
+	                type: change.type,
+	                name: change.name,
+	                oldValue: change.oldValue
+	            })
+	            if(change.type === 'add'){
+	                if(!ctx.filter(object,path)) { return }
+	                observeDeepObject(ctx, change.object, path)
+	            } else if(change.type === 'delete') {
+	                unobserveDeepObject(ctx, change.oldValue, path.concat(change.name))
+	            }
+	        })
+	    }
+	    ctx.setHandler(object, path, func)
+	    Object.observe(object, func)
+	}
+	
+	function observeArray(ctx, object, name, path) {
+	    Array.observe(object, function(changes) {
+	        changes.forEach(function(change) {
+	            let msg = null
+	            
+	            if(change.type === 'update'){
+	                msg = {
+	                    path: path.concat(change.name),
+	                    node: change.object,
+	                    type: 'update',
+	                    name: change.name,
+	                    oldValue: change.oldValue
+	                }
+	            } else if (change.type === 'splice'){
+	                msg = {
+	                    path: path,
+	                    node: change.object,
+	                    type: 'update',
+	                    arrayChangeType: change.type,
+	                    name: name,
+	                    index: change.index,
+	                    removed: change.removed,
+	                    //added: change.object.slice(change.index,change.addedCount),
+	                    addedCount: change.addedCount,
+	                    oldValue: change.oldValue
+	                }
+	                
+	                let added = change.object.slice(change.index,change.index+change.addedCount);
+	                
+	                added.forEach(function(element){
+	                    if(typeOf(element) !== 'array' && typeOf(element) !== 'object' && typeOf(element) !== 'function') { return }
+	                    if(!ctx.filter(element,path.concat(String(change.index)))) { return }
+	                    observeObject(ctx,element,path.concat(String(change.index)))
+	                    observeDeepObject(ctx,element,path.concat(String(change.index)))
+	                })
+	                change.removed.forEach(function(element){
+	                    if(typeOf(element) === 'array'){
+	                        Array.unobserve(element, ctx.getHandler(element,path.concat(String(change.index))))
+	                        unobserveDeepArray(ctx, element, change.path)
+	                    } else if (typeOf(element) === 'object' || typeOf(element) === 'function') {
+	                        Object.unobserve(element, ctx.getHandler(element,path.concat(String(change.index))))
+	                        unobserveDeepObject(ctx, element, change.path)
+	                    }
+	                    
+	                })
+	            }
+	            
+	            ctx.notify(msg)
+	        })
+	    })
+	}
+	
+	function unobserveDeepObject(ctx, object, path) {
+	    Object.keys(object).forEach(function(property){
+	        let propObject = object[property]
+	
+	        if (typeOf(propObject) === 'object') {
+	            Object.unobserve(propObject, ctx.getHandler(propObject, path.concat(property)))
+	            unobserveDeepObject( ctx, propObject, path.concat(property))
+	        } else if(typeOf(propObject) === 'array'){
+	            Array.unobserve(propObject, ctx.getHandler(propObject,path.concat(property)))
+	            unobserveDeepArray(ctx, propObject, path.concat(property))
+	        }
+	    })
+	}
+	
+	function unobserveDeepArray(ctx, array, path) {
+	    array.forEach(function(element, index){
+	
+	        if (typeOf(element) === 'object' || typeOf(element) === 'function') {
+	            Object.unobserve(element, ctx.getHandler(element, path.concat(String(index))))
+	            unobserveDeepObject( ctx, element, path.concat(String(index)))
+	        } else if(typeOf(element) === 'array'){
+	            Array.unobserve(element, ctx.getHandler(element,path.concat(String(index))))
+	            unobserveDeepArray(ctx, array, path.concat(String(index)))
+	        }
+	    })
+	}
+	
+	function observeDeepObject(ctx, object, path) {
+	    Object.keys(object).forEach(function(property){
+	        const currPath = path.concat([property])
+	        const propObject = object[property]
+	
+	        if (typeOf(propObject) === 'object' || typeOf(propObject) === 'function') {
+	            if(!ctx.filter(propObject,currPath)) { return }
+	            observeObject(ctx, propObject, currPath)
+	            observeDeepObject(ctx, propObject, currPath)
+	        } else if(typeOf(propObject) === 'array'){
+	            if(!ctx.filter(propObject,currPath)) { return }
+	            observeArray(ctx,propObject,property,currPath)
+	            observeDeepArray(ctx, propObject, currPath)
+	        }
+	    })
+	}
+	
+	function observeDeepArray(ctx, array, path) {
+	    array.forEach(function(element, index) {
+	        const currPath = path.concat(String(index))
+	
+	        if(typeOf(element) === 'array') {
+	            if(!ctx.filter(element,currPath)) { return }
+	            observeArray(ctx,element,currPath)
+	            observeDeepArray(ctx, element, currPath)
+	        } else if(typeOf(element) === 'object' || typeOf(element) === 'function') {
+	            if(!ctx.filter(element,currPath)) { return }
+	            observeObject(ctx,element,currPath)
+	            observeDeepObject(ctx, element, currPath)
+	        }
+	    })
+	}
+	
+	function comparePaths(path1, path2){
+	    return (path1.length === path2.length) && path1.every(function(element, index) {
+	        return element === path2[index];
+	    })
+	}
+	
+	function findAndAddMethod(object, path, methods){
+	    Object.getOwnPropertyNames(object).forEach(function(prop){
+	        if(typeOf(object[prop]) === 'function'){
+	            methods.push(path.concat(prop))
+	        }
+	        if(typeOf(object[prop]) === 'object'){
+	            findAndAddMethod(object[prop],path.concat(prop), methods)
+	        }
+	        if(typeOf(object[prop]) === 'array'){
+	            object[prop].forEach(function(el, index){
+	                findAndAddMethod(el,path.concat(prop).concat(String(index)), methods)
+	            })
+	        }
+	    })
+	}
+	
+	exports.Multiobserve = {
+	    observe(object, callback, filterCallback){
+	        const root = {}
+	        const rootNotifier = Object.getNotifier(root)
+	        const handlers = new WeakMap()
+	        const ctx = Object.freeze({
+	            notify(msg) {
+	                rootNotifier.notify(msg)
+	            },
+	            setHandler(object, path, handler ) {
+	                let ph = handlers.get(object)
+	                let o = {
+	                    handler,
+	                    path
+	                }
+	                if(ph === undefined){
+	                    ph = [o]
+	                    handlers.set(object, ph)
+	                } else {
+	                    if(!ph.some(function(el){
+	                        return comparePaths(el.path, path)
+	                    })){
+	                        ph.push(o)
+	                    }
+	                }
+	
+	            },
+	            getHandler(object, path){
+	                let ph = handlers.get(object)
+	                let result = void(0)
+	                ph.forEach(function(el){
+	                    if(comparePaths(el.path, path)){
+	                        result = el.handler
+	                    }
+	                })
+	                return result
+	            },
+	            filter(node, path){
+	                return filterCallback === undefined ? true : filterCallback(node, path)
+	            }
+	        })
+	        observeObject(ctx, object, [])
+	        observeDeepObject(ctx, object, [])
+	        Object.observe(root,function(changes){
+	            callback(changes.map(function(change){
+	                if(change.arrayChangeType === 'splice'){
+	                    return {
+	                        node : change.node || object,
+	                        path : change.path || change.name,
+	                        type : 'splice',
+	                        index: change.index,
+	                        removed: change.removed,
+	                        addedCount: change.addedCount
+	                    }
+	                } else if(change.type === 'update' || change.type === 'add' || change.type === 'delete'){
+	                    return {
+	                        node : change.node || object,
+	                        path : change.path || change.name,
+	                        type : change.type,
+	                        oldValue : change.oldValue
+	                    }
+	                }
+	                return {}
+	            }))
+	        })
+	        objects.set(object, {
+	            root,
+	            rootNotifier,
+	            handlers,
+	            ctx
+	        })
+	        return {
+	            performChange(name, changeFn){
+	                rootNotifier.notify({
+	                    name : name,
+	                    type : 'update',
+	                    batchChangeType : 'begin'
+	                })
+	                const resultMsg = changeFn()
+	                rootNotifier.notify({
+	                    name : name,
+	                    type : 'update',
+	                    batchChangeType : 'end',
+	                    resultMsg : resultMsg
+	                })
+	            }
+	        }
+	    },
+	    findNode(object, path){
+	        if(!Array.isArray(path)) {
+	            return undefined
+	        }
+	        let curr = object
+	        path.every(function(node) {
+	            if (curr[node] !== undefined) {
+	                curr = curr[node]
+	                return true
+	            } else {
+	                curr = undefined
+	                return false
+	            }
+	        })
+	        return curr
+	    },
+	    methodsToPaths(object){
+	        const methods = []
+	        
+	        findAndAddMethod(object, [], methods)
+	        return methods
+	    }
+	}
+
+/***/ },
+/* 8 */
+/***/ function(module, exports) {
+
+	exports.validateMessage = (msg) =>{
+	
+	    if (!msg.hasOwnProperty('type')) {
+	        throw new Error('Missing type property.')
+	    }
+	    if (msg.type !== 'object-get' && msg.type !== 'object-call') {
+	        throw new Error('Type must be one of [object-get,object-call].')
+	    }
 	    
+	    if(msg.type === 'object-get'){
+	    
+	        if (!msg.hasOwnProperty('name')) {
+	            throw new Error('Missing name property.')
+	        }
+	        
+	    } else if(msg.type === 'object-call'){
+	        if (!msg.hasOwnProperty('name')) {
+	            throw new Error('Missing name property.')
+	        }
+	        if (!msg.hasOwnProperty('path')) {
+	            throw new Error('Missing path property.')
+	        }
+	        if (!Array.isArray(msg.path)) {
+	            throw new Error('Property path is not an array.')
+	        }
+	        if (!msg.hasOwnProperty('args')) {
+	            throw new Error('Missing args property.')
+	        }
+	        if (!Array.isArray(msg.args)) {
+	            throw new Error('Property args is not an array.')
+	        }
+	        if (!msg.hasOwnProperty('id')) {
+	            throw new Error('Missing id property.')
+	        }
+	    }
+	    
+	    return msg
+	}
+
+/***/ },
+/* 9 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict'
+	
+	const Multiobserve = __webpack_require__(7).Multiobserve
+	const guid = __webpack_require__(10).guid
+	
+	exports.createObjectStore = function (transformer) {
+	    
+	    const objectToRecord = new Map()
+	    const nameToRecord = new Map()
+	    const targetToObjects = new Map()
+	    
+	    const trfm = transformer || (()=>{})
+	    
+	    let statObject
+	    
+	    const self = Object.freeze({
+	        registerObject(obj, lifetime, name){
+	            let objRecord = objectToRecord.get(obj)
+	            if(objRecord === undefined){
+	                objRecord = Object.freeze({
+	                    name : (name || guid()),
+	                    bindings : new Set(),
+	                    object : obj,
+	                    methods : [],
+	                    lifetime : (lifetime || 0),
+	                    timerHandle : -1
+	                })
+	                objectToRecord.set(obj, objRecord)
+	                nameToRecord.set(objRecord.name, objRecord)
+	                
+	                Multiobserve.observe(obj,(changes) => {
+	                    trfm(objRecord, changes)
+	                },
+	                (node, path) => {
+	                    if(typeof node === 'function'){
+	                        objRecord.methods.push(path)
+	                    }
+	                    return true
+	                })
+	                if(statObject !== undefined){
+	                    statObject.objects++
+	                }
+	            } 
+	            return objRecord
+	        },
+	        unregisterObject(obj){
+	            const objRecord = objectToRecord.get(obj)
+	            if(objRecord !== undefined){
+	                Multiobserve.unobserve(objRecord.object)
+	                objectToRecord.delete(objRecord)
+	                nameToRecord.delete(objRecord)
+	                if(statObject !== undefined){
+	                    statObject.objects--
+	                }
+	            }
+	        },
+	        bind(object, target){
+	            let objRecord = objectToRecord.get(object)
+	            if(objRecord === undefined){
+	                objRecord = self.registerObject(object)
+	            }
+	            
+	            objRecord.bindings.add(target)
+	            const objects = targetToObjects.get(target)
+	            if(objects === undefined){
+	                targetToObjects.set(target, new Set([objRecord.object]))
+	                if(statObject !== undefined){
+	                    statObject.targets++
+	                }
+	            } else {
+	                objects.add(objRecord.object)
+	            }
+	            if(objRecord.timerHandle !== -1){
+	                clearTimeout(objRecord.timerHandle)
+	                objRecord.timerHandle = -1
+	            }
+	            
+	            return objRecord
+	        },
+	        unbind(object, target){
+	            const objRecord = objectToRecord.get(object)
+	            if(objRecord !== undefined){
+	                objRecord.bindings.delete(target)
+	                const objects = targetToObjects.get(target)
+	                if(objects !== undefined){
+	                    objects.delete(objRecord.object)
+	                    if(objects.size === 0 && statObject !== undefined){
+	                        statObject.targets--
+	                    }
+	                }
+	                if(objRecord.bindings.size === 0 && objRecord.lifetime !== 0){
+	                    if(objRecord.timerHandle !== -1) {
+	                        clearTimeout(objRecord.timerHandle)
+	                    }
+	                    objRecord.timerHandle = setTimeout(()=>{
+	                        self.unregisterObject(objRecord.object)
+	                        objRecord.timerHandle = -1
+	                    }, objRecord.lifetime)
+	                }
+	            }
+	            return objRecord
+	        },
+	        lookupByName(name){
+	            const objRecord = nameToRecord.get(name)
+	            if(objRecord !== undefined){
+	                return objRecord.object
+	            }
+	            return undefined
+	        },
+	        lookupByObject(object){
+	            const objRecord = objectToRecord.get(object)
+	            if(objRecord !== undefined){
+	                return objRecord
+	            }
+	            return undefined
+	        },
+	        allBindObjects(target){
+	            return targetToObjects.get(target)
+	        },
+	        getStatObject(){
+	            if(statObject === undefined){
+	                statObject = Object.freeze({
+	                    objects : Number(objectToRecord.size),
+	                    targets : Number(targetToObjects.size)
+	                })
+	                self.registerObject(statObject)
+	            }
+	            return statObject
+	        }
+	    })
+	    
+	    return self
+	}
+
+/***/ },
+/* 10 */
+/***/ function(module, exports) {
+
+	exports.guid = function guid() {
+	    function s4() {
+	        return Math.floor((1 + Math.random()) * 0x10000)
+	            .toString(16)
+	            .substring(1);
+	    }
+	    return s4() + s4() + '-' + s4() + '-' + s4() + '-' +
+	        s4() + '-' + s4() + s4() + s4();
+	}
+
+/***/ },
+/* 11 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict'
+	
+	const createChangeHandler = __webpack_require__(12)
+	
+	module.exports = function createHyperionClient(spec) {
+	    const socket = spec.socket || new WebSocket(spec.host)
+	    const response = Object.create(null,{})
+	    const objects = Object.create(null,{})
+	    const changeHandler = createChangeHandler()
+	    let id = 0
+	    let messageLock = false
+	    let messages = []
+	
 	    function send(msg){
 	        console.log('=>')
 	        console.log(msg)
@@ -321,20 +1297,20 @@
 	    }
 	
 	    function createProxyMethod(object, objectName, method) {
-	        var curr = object
+	        let curr = object
 	        method.forEach(function(node) {
 	            if (curr[node] === undefined) {
 	                curr[node] = function() {
-	                    var currId = id++
+	                    const currId = id++
 	
-	                    var promise = new Promise(function(resolve, reject) {
+	                    const promise = new Promise(function(resolve, reject) {
 	                        response[currId] = {
 	                            resolve: resolve,
 	                            reject: reject
 	                        }
 	                    })
-	                    var msg = {
-	                        type : 'object-call',    
+	                    const msg = {
+	                        type : 'object-call',
 	                        path : method,
 	                        name : objectName,
 	                        id : currId,
@@ -350,46 +1326,67 @@
 	        })
 	
 	    }
-	    
-	    function applyChange(object, change){
+	
+	    function applyChange(object, change, next){
 	        if(change.type === 'update'){
-	            var curr = object
+	            let curr = object
 	            change.path.forEach(function(node){
 	                if(change.path[change.path.length-1] === node){
-	                    curr[node] = change.value
+	                    curr[node] = change.node[change.path[change.path.length -1]]
 	                }
 	                curr = curr[node]
 	            })
+	            changeHandler.fireOnChangeEvent({
+	                path: change.path,
+	                newValue : change.node[change.path[change.path.length -1]],
+	                oldValue : change.oldValue,
+	                next : next
+	            })
 	        } else if(change.type === 'splice'){
-	            var curr = object
+	            let curr = object
 	            change.path.forEach(function(node){
 	                if(change.path[change.path.length-1] === node){
 	                    curr[node].splice.apply(curr[node],[change.index,change.removedCount].concat(change.added))
 	                }
 	                curr = curr[node]
 	            })
-	        }
-	    }
-	    
-	    function applyChanges(object, changes){
-	        changes.forEach(function(change){
-	            applyChange(object, change)
-	        })
-	    }
-	
-	    var client = {
-	        index: function() {
-	            return index
+	            next()
 	        }
 	    }
 	
-	    socket.onopen = function(event) {
-	        if (conf.onopen) conf.onopen(client);
+	    function applyChanges(object, changes, next){
+	        let nextCb
+	        let entries = changes.entries()
+	        nextCb = ()=>{
+	            let entry = entries.next()
+	            if(entry.done) {
+	                return next()
+	            } else {
+	                return applyChange(object, entry.value[1], nextCb)
+	            }
+	        }
+	        nextCb()
 	    }
 	
-	    socket.onmessage = function(event) {
-	        function apply() {
-	            var msg = JSON.parse(event.data)
+	    const clientCtx = {
+	        model: {},
+	        createChangeListener : changeHandler.registerHandler
+	    }
+	
+	    return new Promise(function(resolve, reject) {
+	
+	        function process(){
+	            if(messageLock === true) {
+	                return
+	            }
+	            if(messages.length >= 1){
+	                messageLock = true
+	                apply(messages.shift())
+	            }
+	        }
+	
+	        function apply(data) {
+	            let msg = JSON.parse(data)
 	            console.log('<=')
 	            console.log(msg)
 	            if (msg.type === 'call-response') {
@@ -398,53 +1395,196 @@
 	                        createProxyMethod(msg.result, msg.resultName, method)
 	                    })
 	                    if(msg.resultName === 'index'){
-	                        conf.onIndex(msg.result)
+	                        clientCtx.model = msg.result
+	                        resolve(clientCtx)
 	                    }
 	                    objects[msg.resultName] = msg.result
 	                }
-	                
+	
 	                if(response[msg.id] !== undefined){
 	                    response[msg.id].resolve(msg.result)
 	                    delete response[msg.id]
 	                }
-	            }
-	            if (msg.type === 'object-broadcast') {
+	                messageLock = false
+	                setTimeout(process,0)
+	            } else if (msg.type === 'object-broadcast') {
 	                console.log('applying changes')
-	                var object = objects[msg.name]
+	                const object = objects[msg.name]
 	                if(object){
-	                    applyChanges(object, msg.changes)
+	                    applyChanges(object, msg.changes, ()=>{
+	                        messageLock = false
+	                        setTimeout(process,0)
+	                    })
 	                } else {
 	                    console.log('object not found '+msg.name)
+	                    messageLock = false
+	                    setTimeout(process,0)
 	                }
+	            } else {
+	                messageLock = false
+	                setTimeout(process,0)
 	            }
 	        }
-	        if (conf.onmessage) {
-	            conf.onmessage(apply)
-	        } else {
-	            apply()
+	
+	        socket.onopen = function() {
+	            if (spec.onopen) {
+	                spec.onopen(clientCtx)
+	            }
 	        }
-	        
-	    }
-	    return client
+	
+	        socket.onmessage = function(event) {
+	            messages.push(event.data)
+	            if(messages.length === 1){
+	                setTimeout(process,0)
+	            }
+	        }
+	
+	        socket.onerror = function(event){
+	            if(clientCtx.model === undefined){
+	                reject(event)
+	            }
+	        }
+	    })
 	}
 
 /***/ },
-/* 5 */
+/* 12 */
+/***/ function(module, exports) {
+
+	/**
+	 * Created by odrin on 18.09.2015.
+	 */
+	'use strict'
+	
+	module.exports = function createChangeHandler(){
+	
+	    const listeners = {}
+	    const onChangeId = Symbol()
+	
+	    function findParentForPath(path, index, parent) {
+	        if(index === path.length - 1){
+	            return parent
+	        } else {
+	            if(parent[path[index]] === undefined){
+	                parent[path[index]] = {}
+	            }
+	            return findParentForPath(path, index + 1, parent[path[index]])
+	        }
+	    }
+	
+	    return {
+	        registerHandler(spec){
+	            const path = spec.path
+	            const onChange = spec.onChange
+	
+	            if(path.length === 0 || onChange === undefined){
+	                return
+	            }
+	
+	            const parent = findParentForPath(path, 0, listeners)
+	            if(parent[path[path.length-1]] === undefined){
+	                parent[path[path.length-1]] = {}
+	            }
+	            if(parent[path[path.length-1]][onChangeId] === undefined){
+	                parent[path[path.length-1]][onChangeId] = []
+	            }
+	            parent[path[path.length-1]][onChangeId].push(onChange)
+	        },
+	        fireOnChangeEvent(spec){
+	            const path = spec.path
+	            const oldValue = spec.oldValue
+	            const newValue = spec.newValue
+	            const next = spec.next
+	
+	            if(path.length === 0 || oldValue === undefined || newValue === undefined){
+	                next()
+	                return
+	            }
+	
+	            const parent = findParentForPath(path, 0 , listeners)
+	            if(parent[path[path.length-1]] === undefined){
+	                next()
+	                return
+	            }
+	            if(parent[path[path.length-1]][onChangeId] === undefined){
+	                next()
+	                return
+	            }
+	            const entrIter = parent[path[path.length-1]][onChangeId].entries()
+	
+	            let nextCb
+	
+	            nextCb = ()=>{
+	                let entry = entrIter.next()
+	                if(entry.done) {
+	                    return next()
+	                } else {
+	                    return entry.value[1](path, oldValue, newValue, nextCb)
+	                }
+	            }
+	            nextCb()
+	        }
+	
+	    }
+	}
+
+/***/ },
+/* 13 */
 /***/ function(module, exports) {
 
 	'use strict'
 	/*global PIXI */
 	
 	module.exports = function createBoard(spec){
-	    const model = spec.model
-	    const debug = spec.debug
-	    const resources = spec.resources
-	    const stage = spec.stage;
+	    const clientCtx = spec.clientCtx
+	    const graphicsCtx = spec.graphicsCtx
+	    const emiter = spec.emiter
 	
+	    const model = clientCtx.model
+	
+	    const resources = graphicsCtx.resources
+	    const stage = graphicsCtx.stage;
+	
+	    const debug = true
 	    const board = new PIXI.Container()
 	
 	    board.position.x = 48
 	    board.position.y = 48
+	    board.hitArea = new PIXI.Rectangle(0, 0, model.board.width*resources.floor.frameWidth, model.board.height*resources.floor.frameWidth);
+	    board.interactive = true
+	    board.buttonMode = true
+	    board.on('mousedown', (mouseData)=>{
+	        const pos = mouseData.data.getLocalPosition(board)
+	        const x = Math.floor(pos.x  / resources.floor.frameWidth)
+	        const y = Math.floor(pos.y / resources.floor.frameWidth)
+	        const tile = model.board.data[y*model.board.width+x]
+	        emiter.emit('r4two:board:tileselect',{
+	            position : {
+	                x : x,
+	                y : y,
+	            },
+	            obstacle : tile.obstacle
+	        })
+	    })
+	
+	    const createTileLayer = (data, name, tile, i) => {
+	        if(data === ''){
+	            data = 'wall_5'
+	        }
+	        const sp = data.split('_')
+	        const ceiling = new PIXI.Sprite(resources[sp[0]].frames[sp[1]])
+	
+	        clientCtx.createChangeListener({
+	            path:['board','data',i.toString(),'layers',name],
+	            onChange : (path, oldValue, newValue, next)=>{
+	                const sp = newValue.split('_')
+	                ceiling.texture = resources[sp[0]].frames[sp[1]]
+	                next()
+	            }
+	        })
+	
+	        tile.addChild(ceiling)
+	    }
 	
 	    model.board.data.forEach((el, i)=> {
 	
@@ -452,26 +1592,22 @@
 	        tile.position.x = (i % model.board.width) * resources.floor.frameWidth
 	        tile.position.y = Math.floor(i / model.board.width) * resources.floor.frameHeight
 	
-	        if(el.layers.floor !== ''){
-	            const sp = el.layers.floor.split('_')
-	            const floor = new PIXI.Sprite(resources[sp[0]].frames[sp[1]])
-	            tile.addChild(floor)
-	        }
+	        createTileLayer(el.layers.floor, 'floor', tile, i)
+	        createTileLayer(el.layers.middle, 'middle', tile, i)
+	        createTileLayer(el.layers.ceiling, 'ceiling', tile, i)
 	
-	        if(el.layers.middle !== ''){
-	            const sp = el.layers.middle.split('_')
-	            const middle = new PIXI.Sprite(resources[sp[0]].frames[sp[1]])
-	            tile.addChild(middle)
-	        }
+	        if(debug === true){
+	            const texObst = resources.debug.frames[0]
+	            const texNonObst = resources.wall.frames[5]
 	
-	        if(el.layers.ceiling !== ''){
-	            const sp = el.layers.middle.split('_')
-	            const ceiling = new PIXI.Sprite(resources[sp[0]].frames[sp[1]])
-	            tile.addChild(ceiling)
-	        }
-	
-	        if(debug === true && el.obstacle === true){
-	            const debug = new PIXI.Sprite(resources.debug.frames[0])
+	            const debug = new PIXI.Sprite(el.obstacle ? texObst : texNonObst)
+	            clientCtx.createChangeListener({
+	                path:['board','data',i.toString(),'obstacle'],
+	                onChange : (path, oldValue, newValue, next)=>{
+	                    debug.texture = newValue ? texObst : texNonObst
+	                    next()
+	                }
+	            })
 	            tile.addChild(debug)
 	        }
 	
@@ -487,19 +1623,21 @@
 
 
 /***/ },
-/* 6 */
+/* 14 */
 /***/ function(module, exports) {
 
 	/**
 	 * Created by odrin on 14.09.2015.
 	 */
-	"use strict";
+	'use strict'
 	/*global PIXI */
 	/*global EZGUI */
 	
 	module.exports = function createConsole(spec){
-	    const renderer = spec.renderer
-	    const stage = spec.stage
+	    const graphicsCtx = spec.graphicsCtx
+	    const emiter = spec.emiter
+	    const renderer = graphicsCtx.renderer
+	    const stage = graphicsCtx.stage
 	    const numberOfLines = spec.numberOfLines || 11
 	    const maxLineLength = spec.maxLineLength || 60
 	
@@ -518,7 +1656,7 @@
 	        guiConsole.addChild(line)
 	    }
 	
-	    var guiBtn = {
+	    const guiBtn = {
 	        id: 'sendButton',
 	        text: 'Send',
 	        component: 'Button',
@@ -542,13 +1680,13 @@
 	        history.push(EZGUI.components.commandInput.text)
 	        historyPointer = history.length
 	        inputListener(EZGUI.components.commandInput.text)
-	        EZGUI.components.commandInput.text = ""
+	        EZGUI.components.commandInput.text = ''
 	    }
 	
 	    EZGUI.renderer = renderer;
 	    EZGUI.Theme.load(['/assets/ezgui/kenney-theme/kenney-theme.json'], function () {
-	        var sendBtn = EZGUI.create(guiBtn, 'kenney')
-	        var inputBtn = EZGUI.create(guiInput, 'kenney')
+	        const sendBtn = EZGUI.create(guiBtn, 'kenney')
+	        const inputBtn = EZGUI.create(guiInput, 'kenney')
 	        EZGUI.components.sendButton.on('click', function (event) {
 	            commit()
 	        })
@@ -559,40 +1697,37 @@
 	    stage.addChild(guiConsole)
 	
 	
-	    window.onkeyup = function(e) {
-	        var key = e.keyCode ? e.keyCode : e.which
+	    emiter.on('r4two:action:console',()=>{
+	        guiConsole.visible = !guiConsole.visible
+	        EZGUI.components.commandInput.text = ''
+	    })
 	
-	        if (key === 192 /* ` */) {
-	            e.preventDefault()
-	            guiConsole.visible = !guiConsole.visible
-	            EZGUI.components.commandInput.text = ""
+	    emiter.on('r4two:action:accept',()=>{
+	        commit()
+	    })
+	
+	    emiter.on('r4two:action:up',()=>{
+	        historyPointer--
+	        if(history.length !== 0 && historyPointer < history.length && historyPointer >= 0){
+	            EZGUI.components.commandInput.text = history[historyPointer]
+	        } else {
+	            historyPointer++
 	        }
-	        else if (key === 13/*enter*/ && guiConsole.visible) {
-	            e.preventDefault()
-	            commit()
-	        }
-	        else if(key === 38 /*up*/) {
-	            historyPointer--
-	            if(history.length !== 0 && historyPointer < history.length && historyPointer >= 0){
+	    })
+	
+	    emiter.on('r4two:action:down',()=>{
+	        historyPointer++
+	        if(history.length !== 0 && historyPointer >= 0){
+	            if(historyPointer < history.length){
 	                EZGUI.components.commandInput.text = history[historyPointer]
 	            } else {
-	                historyPointer++
+	                EZGUI.components.commandInput.text = ''
+	                historyPointer = history.length
 	            }
+	        } else {
+	            historyPointer--
 	        }
-	        else if(key === 40 /* down */){
-	            historyPointer++
-	            if(history.length !== 0 && historyPointer >= 0){
-	                if(historyPointer < history.length){
-	                    EZGUI.components.commandInput.text = history[historyPointer]
-	                } else {
-	                    EZGUI.components.commandInput.text = ''
-	                    historyPointer = history.length
-	                }
-	            } else {
-	                historyPointer--
-	            }
-	        }
-	    }
+	    })
 	
 	    const write = (text)=>{
 	        for(let i=lines.length-1; i>0;--i){
@@ -632,7 +1767,443 @@
 
 
 /***/ },
-/* 7 */
+/* 15 */
+/***/ function(module, exports, __webpack_require__) {
+
+	/**
+	 * Created by odrin on 21.09.2015.
+	 */
+	'use strict'
+	/*global PIXI */
+	
+	const createEditorIcon = __webpack_require__(16)
+	const createTileSetPalette = __webpack_require__(17)
+	
+	module.exports = function createEditor(spec){
+	    const graphicsCtx = spec.graphicsCtx
+	    const clientCtx = spec.clientCtx
+	    const emiter = spec.emiter
+	    const renderer = graphicsCtx.renderer
+	    const resources = graphicsCtx.resources
+	    const stage = graphicsCtx.stage
+	    let selectedEditor
+	    let selectedLayerEditor
+	    let currentSet = 0
+	    let sets = Object.getOwnPropertyNames(resources)
+	
+	    const editorIndicator = new PIXI.Container()
+	    editorIndicator.position.x = 30
+	    editorIndicator.position.y = 10
+	    editorIndicator.visible = false
+	    stage.addChild(editorIndicator)
+	
+	    let newBoardButton
+	    let saveBoardButton
+	    let reloadBoardButton
+	
+	    let tileEditor
+	    let obstacleEditor
+	
+	    let floorLayerButton
+	    let middleLayerButton
+	    let ceilingLayerButton
+	
+	    let tileSetUpButton
+	    let tileSetDownButton
+	
+	    let tileSetPalette
+	
+	    const tileSetLabel = new PIXI.Text(`${sets[currentSet]} (${resources[sets[currentSet]].texture.width/16} x ${resources[sets[currentSet]].texture.height/16})`,
+	        {font : '16px Arial', fill : 0xffffff, align : 'center'});
+	    tileSetLabel.position.x = 216
+	    tileSetLabel.position.y = 0
+	    editorIndicator.addChild(tileSetLabel)
+	
+	    tileSetUpButton = createEditorIcon({
+	        parent : editorIndicator,
+	        graphicsCtx : graphicsCtx,
+	        selectable: false,
+	        frame: 8,
+	        position : {
+	            x : 180,
+	            y : 0
+	        },
+	        onClick : ()=>{
+	            currentSet++
+	            if(currentSet >= sets.length){
+	                currentSet = 0
+	            }
+	            tileSetLabel.text = `${sets[currentSet]} (${resources[sets[currentSet]].texture.width/16} x ${resources[sets[currentSet]].texture.height/16})`
+	            tileSetPalette.setTileSet(sets[currentSet])
+	        }
+	    })
+	
+	    tileSetDownButton = createEditorIcon({
+	        parent : editorIndicator,
+	        graphicsCtx : graphicsCtx,
+	        selectable: false,
+	        frame: 9,
+	        position : {
+	            x : 196,
+	            y : 0
+	        },
+	        onClick : ()=>{
+	            currentSet--
+	            if(currentSet < 0){
+	                currentSet = sets.length - 1
+	            }
+	            tileSetLabel.text = `${sets[currentSet]} (${resources[sets[currentSet]].texture.width/16} x ${resources[sets[currentSet]].texture.height/16})`
+	            tileSetPalette.setTileSet(sets[currentSet])
+	        }
+	    })
+	
+	    floorLayerButton = createEditorIcon({
+	        parent : editorIndicator,
+	        graphicsCtx : graphicsCtx,
+	        selectable: true,
+	        frame: 3,
+	        position : {
+	            x : 112,
+	            y : 0
+	        },
+	        onClick : ()=>{
+	            middleLayerButton.deselect()
+	            ceilingLayerButton.deselect()
+	            selectedLayerEditor = floorLayerButton
+	        }
+	    })
+	
+	    middleLayerButton = createEditorIcon({
+	        parent : editorIndicator,
+	        graphicsCtx : graphicsCtx,
+	        selectable: true,
+	        frame: 4,
+	        position : {
+	            x : 130,
+	            y : 0
+	        },
+	        onClick : ()=>{
+	            floorLayerButton.deselect()
+	            ceilingLayerButton.deselect()
+	            selectedLayerEditor = middleLayerButton
+	        }
+	    })
+	
+	    ceilingLayerButton = createEditorIcon({
+	        parent : editorIndicator,
+	        graphicsCtx : graphicsCtx,
+	        selectable: true,
+	        frame: 5,
+	        position : {
+	            x : 148,
+	            y : 0
+	        },
+	        onClick : ()=>{
+	            floorLayerButton.deselect()
+	            middleLayerButton.deselect()
+	            selectedLayerEditor = ceilingLayerButton
+	        }
+	    })
+	
+	    obstacleEditor = createEditorIcon({
+	        parent : editorIndicator,
+	        graphicsCtx : graphicsCtx,
+	        selectable: true,
+	        frame: 1,
+	        position : {
+	            x : 64,
+	            y : 0
+	        },
+	        onClick : ()=>{
+	            tileEditor.deselect()
+	            floorLayerButton.hide()
+	            middleLayerButton.hide()
+	            ceilingLayerButton.hide()
+	            tileSetDownButton.hide()
+	            tileSetUpButton.hide()
+	            tileSetLabel.visible = false
+	            selectedEditor = obstacleEditor
+	        }
+	    })
+	
+	    tileEditor = createEditorIcon({
+	        parent : editorIndicator,
+	        graphicsCtx : graphicsCtx,
+	        selectable: true,
+	        frame : 2,
+	        position : {
+	            x : 82,
+	            y : 0
+	        },
+	        onClick : ()=>{
+	            obstacleEditor.deselect()
+	            floorLayerButton.show()
+	            middleLayerButton.show()
+	            ceilingLayerButton.show()
+	            tileSetDownButton.show()
+	            tileSetUpButton.show()
+	            tileSetLabel.visible = true
+	            selectedEditor = tileEditor
+	        }
+	    })
+	
+	    newBoardButton = createEditorIcon({
+	        parent : editorIndicator,
+	        graphicsCtx : graphicsCtx,
+	        selectable: false,
+	        frame: 9,
+	        position : {
+	            x : 0,
+	            y : 0
+	        },
+	        onClick : ()=>{
+	        }
+	    })
+	
+	    newBoardButton = createEditorIcon({
+	        parent : editorIndicator,
+	        graphicsCtx : graphicsCtx,
+	        selectable: false,
+	        frame: 12,
+	        position : {
+	            x : 0,
+	            y : 0
+	        },
+	        onClick : ()=>{
+	        }
+	    })
+	
+	    saveBoardButton = createEditorIcon({
+	        parent : editorIndicator,
+	        graphicsCtx : graphicsCtx,
+	        selectable: false,
+	        frame: 10,
+	        position : {
+	            x : 18,
+	            y : 0
+	        },
+	        onClick : ()=>{
+	        }
+	    })
+	
+	    reloadBoardButton = createEditorIcon({
+	        parent : editorIndicator,
+	        graphicsCtx : graphicsCtx,
+	        selectable: false,
+	        frame: 11,
+	        position : {
+	            x : 36,
+	            y : 0
+	        },
+	        onClick : ()=>{
+	        }
+	    })
+	
+	    tileSetPalette = createTileSetPalette({
+	        parent : editorIndicator,
+	        graphicsCtx : graphicsCtx,
+	        position : {
+	            x : 0,
+	            y : 20
+	        },
+	        tileset : sets[currentSet],
+	        onClick : ()=>{
+	        }
+	    })
+	
+	    selectedEditor = obstacleEditor
+	    floorLayerButton.hide()
+	    middleLayerButton.hide()
+	    ceilingLayerButton.hide()
+	    tileSetDownButton.hide()
+	    tileSetUpButton.hide()
+	    tileSetLabel.visible = false
+	
+	    emiter.on('r4two:action:obstacle-editor',()=>{
+	        editorIndicator.visible = !editorIndicator.visible
+	        if(editorIndicator.visible){
+	            emiter.emit('r4two:editor:enabled')
+	        } else {
+	            emiter.emit('r4two:editor:disabled')
+	        }
+	    })
+	
+	    emiter.on('r4two:board:tileselect', (tile)=>{
+	        if(!editorIndicator.visible) {
+	            return
+	        }
+	        if(selectedEditor === obstacleEditor){
+	            clientCtx.model.setTileObstacle({
+	                position : {
+	                    x : tile.position.x,
+	                    y : tile.position.y
+	                },
+	                obstacle : !tile.obstacle
+	            })
+	        }
+	    })
+	
+	}
+
+/***/ },
+/* 16 */
+/***/ function(module, exports) {
+
+	/**
+	 * Created by odrin on 21.09.2015.
+	 */
+	'use strict'
+	/*global PIXI */
+	
+	module.exports = function createEditorIcon(spec){
+	    const graphicsCtx = spec.graphicsCtx
+	    const resources = graphicsCtx.resources
+	    const selectable = spec.selectable
+	    const onClick = spec.onClick
+	    const position = spec.position
+	    const frame = spec.frame
+	    const parent = spec.parent
+	
+	    const iconContainer = new PIXI.Container()
+	    iconContainer.hitArea = new PIXI.Rectangle(0, 0, 16, 16);
+	    iconContainer.interactive = true
+	    iconContainer.buttonMode = true
+	    iconContainer.position = position
+	
+	    const background = new PIXI.Sprite(resources.editor.frames[frame])
+	    background.position.x = 0
+	    background.position.y = 0
+	    iconContainer.addChild(background)
+	
+	    const selected = new PIXI.Sprite(resources.editor.frames[0])
+	    selected.position.x = 0
+	    selected.position.y = 0
+	    selected.visible = false
+	    iconContainer.addChild(selected)
+	
+	    iconContainer.on('mousedown', ()=>{
+	        if(selectable){
+	            selected.visible = !selected.visible
+	            onClick(selected.visible)
+	        } else {
+	            onClick()
+	        }
+	    })
+	
+	    parent.addChild(iconContainer)
+	
+	
+	    return {
+	        deselect : ()=>{
+	            selected.visible = false
+	        },
+	        hide : ()=>{
+	            iconContainer.visible = false
+	        },
+	        show : ()=>{
+	            iconContainer.visible = true
+	        }
+	    }
+	}
+
+/***/ },
+/* 17 */
+/***/ function(module, exports, __webpack_require__) {
+
+	/**
+	 * Created by odrin on 21.09.2015.
+	 */
+	'use strict'
+	/*global PIXI */
+	
+	const createEditorIcon = __webpack_require__(16)
+	
+	module.exports = function createTileSetPalette(spec){
+	    const graphicsCtx = spec.graphicsCtx
+	    const resources = graphicsCtx.resources
+	    const onClick = spec.onClick
+	    const position = spec.position
+	    const parent = spec.parent
+	    let tileset = spec.tileset;
+	
+	    const tileSetPaletteContainer = new PIXI.Container()
+	    tileSetPaletteContainer.position = position
+	    parent.addChild(tileSetPaletteContainer)
+	
+	    let nextPaletteButton
+	    let prevPaletteButton
+	
+	    let palette = []
+	    let offset = 0
+	    let offsetStep = 21
+	
+	    const update = ()=>{
+	        palette.forEach((el, i)=>{
+	            if(i+offset < resources[tileset].frames.length){
+	                el.texture = resources[tileset].frames[i+offset]
+	            } else {
+	                el.texture = resources.wall.frames[5]
+	            }
+	        })
+	    }
+	
+	    nextPaletteButton = createEditorIcon({
+	        parent : tileSetPaletteContainer,
+	        graphicsCtx : graphicsCtx,
+	        selectable: false,
+	        frame: 6,
+	        position : {
+	            x : 400,
+	            y : 0
+	        },
+	        onClick : ()=>{
+	            offset = offset + offsetStep
+	            update()
+	        }
+	    })
+	
+	    prevPaletteButton = createEditorIcon({
+	        parent : tileSetPaletteContainer,
+	        graphicsCtx : graphicsCtx,
+	        selectable: false,
+	        frame: 7,
+	        position : {
+	            x : 0,
+	            y : 0
+	        },
+	        onClick : ()=>{
+	            offset = offset - offsetStep
+	            if(offset < 0){
+	                offset = 0
+	            }
+	            update()
+	        }
+	    })
+	
+	    for(let i=0; i< offsetStep ; ++i){
+	        let p
+	        if(i < resources[tileset].frames.length){
+	            p = new PIXI.Sprite(resources[tileset].frames[i])
+	        } else {
+	            p = new PIXI.Sprite(resources.wall.frames[5])
+	        }
+	        p.position.x = 20 + (i * (16 + 2))
+	        p.position.y = 0
+	        palette.push(p)
+	        tileSetPaletteContainer.addChild(p)
+	    }
+	
+	    return {
+	        setTileSet : (ts)=>{
+	            tileset = ts
+	            offset = 0
+	            update()
+	        }
+	    }
+	}
+
+/***/ },
+/* 18 */
 /***/ function(module, exports) {
 
 	/**
@@ -642,7 +2213,8 @@
 	
 	module.exports = function createInterpreter(spec){
 	
-	    const model = spec.model
+	    const clientCtx = spec.clientCtx
+	    const model = clientCtx.model
 	
 	    const commands = new Map()
 	    const Any = Symbol()

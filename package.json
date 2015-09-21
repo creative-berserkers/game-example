@@ -4,7 +4,8 @@
   "description": "Simple game example",
   "main": "game/src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "webpack-watch": "node_modules/webpack/bin/webpack.js -w"
   },
   "repository": {
     "type": "git",
@@ -21,7 +22,8 @@
   },
   "dependencies": {
     "cb-http-ws-server": "0.0.20",
-    "cb-hyperion": "^1.4.2",
+    "cb-hyperion": "1.6.9",
+    "eventemitter3": "1.1.1",
     "jasmine-node": "^1.14.5"
   }
 }

@@ -1,47 +1,64 @@
 'use strict'
 /*global PIXI */
 
-const setup = require('./setup')
-const createNautilusClient = require('./nautilus')
+const EventEmitter = require('eventemitter3');
+const setupGame = require('./setup')
+const createKeyboardMappings = require('./core/createKeyboardMappings')
+const createHyperionClient = require('cb-hyperion').createHyperionClient
 const createBoard = require('./core/createBoard')
 const createConsole = require('./core/createConsole')
+const createEditor = require('./editor/createEditor')
 const createInterpreter = require('./core/createInterpreter')
 
 document.addEventListener('DOMContentLoaded', function () {
 
     const debug = true
-    const init = (stage, resources, renderer) => {
-        createNautilusClient({
-            host: 'ws://' + location.host,
-            onIndex: function (model) {
-                const board = createBoard({
-                    model: model,
-                    resources: resources,
-                    debug : debug,
-                    stage : stage
-                })
+    const init = (graphicsCtx) => {
+        let client = createHyperionClient({
+            host: 'ws://' + location.host
+        })
+
+        const emiter = new EventEmitter()
+
+        createKeyboardMappings({
+            emiter: emiter
+        })
+
+        client.then((clientCtx) => {
+            createBoard({
+                clientCtx : clientCtx,
+                graphicsCtx : graphicsCtx,
+                emiter : emiter
+            })
 
 
-                const guiConsole = createConsole({
-                    renderer : renderer,
-                    stage : stage
-                })
+            const guiConsole = createConsole({
+                graphicsCtx : graphicsCtx,
+                emiter : emiter
+            })
 
-                const interpreter = createInterpreter({
-                    model: model
-                })
+            const interpreter = createInterpreter({
+                clientCtx: clientCtx
+            })
 
-                guiConsole.setInputListener((command)=>{
-                    const result = interpreter.interpret(command)
-                    if(result instanceof Promise){
-                        result.then((r)=>{
-                            guiConsole.writeLine(r)
-                        })
-                    } else {
-                        guiConsole.writeLine(result)
-                    }
-                })
-            }
+            guiConsole.setInputListener((command)=>{
+                const result = interpreter.interpret(command)
+                if(result instanceof Promise){
+                    result.then((r)=>{
+                        guiConsole.writeLine(r)
+                    })
+                } else {
+                    guiConsole.writeLine(result)
+                }
+            })
+
+            const editor = createEditor({
+                graphicsCtx : graphicsCtx,
+                clientCtx : clientCtx,
+                emiter : emiter
+            })
+        },(error)=>{
+            console.log(error)
         })
     }
 
@@ -49,7 +66,7 @@ document.addEventListener('DOMContentLoaded', function () {
         //assets.bunny.rotation += (delta/1000)
     }
 
-    setup({
+    setupGame({
         assets: [
             {
                 name: 'floor',
@@ -66,6 +83,10 @@ document.addEventListener('DOMContentLoaded', function () {
             {
                 name: 'warrior',
                 url: '/assets/img/Commissions/Warrior.png'
+            },
+            {
+                name: 'editor',
+                url: '/assets/img/Editor/EditorControls.png'
             }
         ],
         init: init,
