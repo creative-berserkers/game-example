@@ -19,11 +19,11 @@ module.exports = function createEditor(spec){
     let currentSet = 0
     let sets = Object.getOwnPropertyNames(resources)
 
-    const editorIndicator = new PIXI.Container()
-    editorIndicator.position.x = 30
-    editorIndicator.position.y = 10
-    editorIndicator.visible = false
-    stage.addChild(editorIndicator)
+    const editorContainer = new PIXI.Container()
+    editorContainer.position.x = 30
+    editorContainer.position.y = 10
+    editorContainer.visible = false
+    stage.addChild(editorContainer)
 
     let newBoardButton
     let saveBoardButton
@@ -40,20 +40,39 @@ module.exports = function createEditor(spec){
     let tileSetDownButton
 
     let tileSetPalette
+    let currentMarker
+    let currentTexId = 0
+
+    let clearTileEditor
 
     const tileSetLabel = new PIXI.Text(`${sets[currentSet]} (${resources[sets[currentSet]].texture.width/16} x ${resources[sets[currentSet]].texture.height/16})`,
         {font : '16px Arial', fill : 0xffffff, align : 'center'});
-    tileSetLabel.position.x = 216
+    tileSetLabel.position.x = 226
     tileSetLabel.position.y = 0
-    editorIndicator.addChild(tileSetLabel)
+    editorContainer.addChild(tileSetLabel)
+
+    const notificationLabel = new PIXI.Text('',{font : '16px Arial', fill : 0xffffff, align : 'center'});
+    notificationLabel.position.x = 10
+    notificationLabel.position.y = 330
+    notificationLabel.visible = false
+    editorContainer.addChild(notificationLabel)
+
+    const showNotification = (text)=>{
+        notificationLabel.text = text
+        notificationLabel.visible = true
+        setTimeout(()=>{
+            notificationLabel.text = ''
+            notificationLabel.visible = false
+        }, 2000)
+    }
 
     tileSetUpButton = createEditorIcon({
-        parent : editorIndicator,
+        parent : editorContainer,
         graphicsCtx : graphicsCtx,
         selectable: false,
         frame: 8,
         position : {
-            x : 180,
+            x : 190,
             y : 0
         },
         onClick : ()=>{
@@ -67,12 +86,12 @@ module.exports = function createEditor(spec){
     })
 
     tileSetDownButton = createEditorIcon({
-        parent : editorIndicator,
+        parent : editorContainer,
         graphicsCtx : graphicsCtx,
         selectable: false,
         frame: 9,
         position : {
-            x : 196,
+            x : 206,
             y : 0
         },
         onClick : ()=>{
@@ -86,12 +105,12 @@ module.exports = function createEditor(spec){
     })
 
     floorLayerButton = createEditorIcon({
-        parent : editorIndicator,
+        parent : editorContainer,
         graphicsCtx : graphicsCtx,
         selectable: true,
         frame: 3,
         position : {
-            x : 112,
+            x : 122,
             y : 0
         },
         onClick : ()=>{
@@ -102,12 +121,12 @@ module.exports = function createEditor(spec){
     })
 
     middleLayerButton = createEditorIcon({
-        parent : editorIndicator,
+        parent : editorContainer,
         graphicsCtx : graphicsCtx,
         selectable: true,
         frame: 4,
         position : {
-            x : 130,
+            x : 140,
             y : 0
         },
         onClick : ()=>{
@@ -118,12 +137,12 @@ module.exports = function createEditor(spec){
     })
 
     ceilingLayerButton = createEditorIcon({
-        parent : editorIndicator,
+        parent : editorContainer,
         graphicsCtx : graphicsCtx,
         selectable: true,
         frame: 5,
         position : {
-            x : 148,
+            x : 158,
             y : 0
         },
         onClick : ()=>{
@@ -134,7 +153,7 @@ module.exports = function createEditor(spec){
     })
 
     obstacleEditor = createEditorIcon({
-        parent : editorIndicator,
+        parent : editorContainer,
         graphicsCtx : graphicsCtx,
         selectable: true,
         frame: 1,
@@ -144,18 +163,21 @@ module.exports = function createEditor(spec){
         },
         onClick : ()=>{
             tileEditor.deselect()
+            clearTileEditor.deselect()
             floorLayerButton.hide()
             middleLayerButton.hide()
             ceilingLayerButton.hide()
             tileSetDownButton.hide()
             tileSetUpButton.hide()
             tileSetLabel.visible = false
+            tileSetPalette.hide()
             selectedEditor = obstacleEditor
+            emiter.emit('r4two:editor:show-obstacles', true)
         }
     })
 
     tileEditor = createEditorIcon({
-        parent : editorIndicator,
+        parent : editorContainer,
         graphicsCtx : graphicsCtx,
         selectable: true,
         frame : 2,
@@ -165,18 +187,45 @@ module.exports = function createEditor(spec){
         },
         onClick : ()=>{
             obstacleEditor.deselect()
+            clearTileEditor.deselect()
             floorLayerButton.show()
             middleLayerButton.show()
             ceilingLayerButton.show()
             tileSetDownButton.show()
             tileSetUpButton.show()
             tileSetLabel.visible = true
+            tileSetPalette.show()
             selectedEditor = tileEditor
+            emiter.emit('r4two:editor:show-obstacles', false)
+        }
+    })
+
+    clearTileEditor = createEditorIcon({
+        parent : editorContainer,
+        graphicsCtx : graphicsCtx,
+        selectable: true,
+        frame: 13,
+        position : {
+            x : 100,
+            y : 0
+        },
+        onClick : ()=>{
+            obstacleEditor.deselect()
+            tileEditor.deselect()
+            floorLayerButton.hide()
+            middleLayerButton.hide()
+            ceilingLayerButton.hide()
+            tileSetDownButton.hide()
+            tileSetUpButton.hide()
+            tileSetLabel.visible = false
+            tileSetPalette.hide()
+            selectedEditor = clearTileEditor
+            emiter.emit('r4two:editor:show-obstacles', true)
         }
     })
 
     newBoardButton = createEditorIcon({
-        parent : editorIndicator,
+        parent : editorContainer,
         graphicsCtx : graphicsCtx,
         selectable: false,
         frame: 9,
@@ -189,7 +238,7 @@ module.exports = function createEditor(spec){
     })
 
     newBoardButton = createEditorIcon({
-        parent : editorIndicator,
+        parent : editorContainer,
         graphicsCtx : graphicsCtx,
         selectable: false,
         frame: 12,
@@ -202,7 +251,7 @@ module.exports = function createEditor(spec){
     })
 
     saveBoardButton = createEditorIcon({
-        parent : editorIndicator,
+        parent : editorContainer,
         graphicsCtx : graphicsCtx,
         selectable: false,
         frame: 10,
@@ -211,11 +260,14 @@ module.exports = function createEditor(spec){
             y : 0
         },
         onClick : ()=>{
+            clientCtx.model.save().then((result) => {
+                showNotification(result)
+            })
         }
     })
 
     reloadBoardButton = createEditorIcon({
-        parent : editorIndicator,
+        parent : editorContainer,
         graphicsCtx : graphicsCtx,
         selectable: false,
         frame: 11,
@@ -228,36 +280,61 @@ module.exports = function createEditor(spec){
     })
 
     tileSetPalette = createTileSetPalette({
-        parent : editorIndicator,
+        parent : editorContainer,
         graphicsCtx : graphicsCtx,
         position : {
             x : 0,
             y : 20
         },
         tileset : sets[currentSet],
-        onClick : ()=>{
+        onClick : (id)=>{
+            currentTexId = id
+            currentMarker.texture = resources[sets[currentSet]].frames[id]
         }
     })
 
+    currentMarker = new PIXI.Sprite(resources[sets[currentSet]].frames[0])
+    currentMarker.position.x = 400
+    currentMarker.position.y = 0
+    editorContainer.addChild(currentMarker)
+
+
     selectedEditor = obstacleEditor
+    selectedEditor.select()
     floorLayerButton.hide()
+    floorLayerButton.select()
+    selectedLayerEditor = floorLayerButton
     middleLayerButton.hide()
     ceilingLayerButton.hide()
     tileSetDownButton.hide()
     tileSetUpButton.hide()
     tileSetLabel.visible = false
+    tileSetPalette.hide()
 
-    emiter.on('r4two:action:obstacle-editor',()=>{
-        editorIndicator.visible = !editorIndicator.visible
-        if(editorIndicator.visible){
+    emiter.on('r4two:action:editor',()=>{
+        editorContainer.visible = !editorContainer.visible
+        if(editorContainer.visible){
             emiter.emit('r4two:editor:enabled')
+            emiter.emit('r4two:editor:show-obstacles', selectedEditor === obstacleEditor)
         } else {
             emiter.emit('r4two:editor:disabled')
+            emiter.emit('r4two:editor:show-obstacles', false)
         }
+
     })
 
+    const selectedLayer = ()=>{
+        if(selectedLayerEditor === floorLayerButton){
+            return 'floor'
+        } else if(selectedLayerEditor === middleLayerButton){
+            return 'middle'
+        } else if(selectedLayerEditor === ceilingLayerButton){
+            return 'ceiling'
+        }
+    }
+
     emiter.on('r4two:board:tileselect', (tile)=>{
-        if(!editorIndicator.visible) {
+        if(!editorContainer.visible) {
             return
         }
         if(selectedEditor === obstacleEditor){
@@ -267,6 +344,47 @@ module.exports = function createEditor(spec){
                     y : tile.position.y
                 },
                 obstacle : !tile.obstacle
+            })
+        } else if(selectedEditor === tileEditor && currentTexId < resources[sets[currentSet]].frames.length){
+            clientCtx.model.setTileTex({
+                position : {
+                    x : tile.position.x,
+                    y : tile.position.y
+                },
+                layer : selectedLayer(),
+                newTex : sets[currentSet]+'_'+currentTexId
+            })
+        } else if(selectedEditor === clearTileEditor){
+            clientCtx.model.setTileTex({
+                position : {
+                    x : tile.position.x,
+                    y : tile.position.y
+                },
+                layer : 'floor',
+                newTex : 'floor_14'
+            })
+            clientCtx.model.setTileTex({
+                position : {
+                    x : tile.position.x,
+                    y : tile.position.y
+                },
+                layer : 'middle',
+                newTex : 'wall_5'
+            })
+            clientCtx.model.setTileTex({
+                position : {
+                    x : tile.position.x,
+                    y : tile.position.y
+                },
+                layer : 'ceiling',
+                newTex : 'wall_5'
+            })
+            clientCtx.model.setTileObstacle({
+                position : {
+                    x : tile.position.x,
+                    y : tile.position.y
+                },
+                obstacle : false
             })
         }
     })

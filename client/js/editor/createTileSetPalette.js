@@ -25,6 +25,8 @@ module.exports = function createTileSetPalette(spec){
     let offset = 0
     let offsetStep = 21
 
+
+
     const update = ()=>{
         palette.forEach((el, i)=>{
             if(i+offset < resources[tileset].frames.length){
@@ -77,6 +79,12 @@ module.exports = function createTileSetPalette(spec){
         }
         p.position.x = 20 + (i * (16 + 2))
         p.position.y = 0
+        p.hitArea = new PIXI.Rectangle(0, 0, 16, 16);
+        p.interactive = true
+        p.buttonMode = true
+        p.on('mousedown', ()=>{
+            onClick(i + offset)
+        })
         palette.push(p)
         tileSetPaletteContainer.addChild(p)
     }
@@ -86,6 +94,12 @@ module.exports = function createTileSetPalette(spec){
             tileset = ts
             offset = 0
             update()
+        },
+        show : () =>{
+            tileSetPaletteContainer.visible = true
+        },
+        hide : ()=>{
+            tileSetPaletteContainer.visible = false
         }
     }
 }

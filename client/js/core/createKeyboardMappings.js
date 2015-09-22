@@ -8,12 +8,8 @@ module.exports = function createKeyboardMappings(spec){
 
     const keyboardMappings = [
         {
-            keyboardCode : 54,
-            eventToEmit : 'r4two:action:tile-editor'
-        },
-        {
-            keyboardCode : 55,
-            eventToEmit : 'r4two:action:obstacle-editor'
+            keyboardCode : 49,
+            eventToEmit : 'r4two:action:editor'
         },
         {
             keyboardCode : 192,

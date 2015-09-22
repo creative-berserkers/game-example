@@ -66,12 +66,19 @@ module.exports = function createBoard(spec){
             const texObst = resources.debug.frames[0]
             const texNonObst = resources.wall.frames[5]
 
-            const debug = new PIXI.Sprite(el.obstacle ? texObst : texNonObst)
+            const debug = new PIXI.Sprite(texNonObst)
             clientCtx.createChangeListener({
                 path:['board','data',i.toString(),'obstacle'],
                 onChange : (path, oldValue, newValue, next)=>{
                     debug.texture = newValue ? texObst : texNonObst
                     next()
+                }
+            })
+            emiter.on('r4two:editor:show-obstacles', (flag)=>{
+                if(flag === true){
+                    debug.texture = el.obstacle ? texObst : texNonObst
+                } else {
+                    debug.texture = texNonObst
                 }
             })
             tile.addChild(debug)

@@ -5,8 +5,12 @@ const fs = require('fs');
 const defaultBoardWidth = 25
 const defaultBoardHeight = 12
 
+const hiddenModel = {
+    boardName : 'level1'
+}
+
 const model = {
-    board: JSON.parse(fs.readFileSync('./server/assets/levels/level1.json', 'utf8')),
+    board: JSON.parse(fs.readFileSync(`./server/assets/levels/${hiddenModel.boardName}.json`, 'utf8')),
     units: [
         {
             name: 'PlayerA',
@@ -54,13 +58,8 @@ const model = {
         console.log('turn ended');
     },
     save(ctx){
-        fs.writeFile("./server/assets/levels/level1.json", JSON.stringify(model.board, null, 2),'utf8', function(err) {
-            if(err) {
-                return console.log(err);
-            }
-
-            console.log("The file was saved!");
-        });
+        fs.writeFileSync(`./server/assets/levels/${hiddenModel.boardName}.json`, JSON.stringify(model.board, null, 2),'utf8')
+        return `The file ${hiddenModel.boardName} was saved!`
     },
     loadBoard(){
         /*fs.readFile( "./server/assets/levels/level1.json", function (err, data) {

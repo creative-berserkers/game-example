@@ -46,6 +46,9 @@ module.exports = function createEditorIcon(spec){
         deselect : ()=>{
             selected.visible = false
         },
+        select : ()=>{
+            selected.visible = true
+        },
         hide : ()=>{
             iconContainer.visible = false
         },
