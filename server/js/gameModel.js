@@ -10,19 +10,69 @@ const defaultBoardHeight = 12
 let model
 let hiddenModel
 
-hiddenModel = {
-    board : JSON.parse(fs.readFileSync('./server/assets/levels/level1.json', 'utf8')),
-    players : [],
-    applyLighting : true
-}
-
-
 const distance = (x1,y1, x2,y2)=>{
 
     let dx = x2-x1
     let dy = y2-y1
 
     return Math.sqrt(dx*dx + dy*dy)
+}
+
+hiddenModel = {
+    board : JSON.parse(fs.readFileSync('./server/assets/levels/level1.json', 'utf8')),
+    players : {
+        aPlayer : {
+            pathfinder : createPathFinder({
+                width : defaultBoardWidth,
+                height : defaultBoardHeight,
+                isObstacle : (x,y)=>{
+                    if(x === model.players.aPlayer.position.x && y === model.players.aPlayer.position.y){
+                        return true
+                    }
+                    if(x === model.players.bPlayer.position.x && y === model.players.bPlayer.position.y){
+                        return true
+                    }
+                    return model.board.data[y*model.board.width + x].obstacle
+                }
+            }),
+            lightcaster : createLightCaster({
+                width : defaultBoardWidth,
+                height : defaultBoardHeight,
+                isObstacle : (x,y)=>{
+                    return model.board.data[y*model.board.width + x].obstacle
+                }
+            }),
+            distance : (x,y)=>{
+                return distance(model.players.aPlayer.position.x, model.players.aPlayer.position.y, x,y)
+            }
+        },
+        bPlayer : {
+            pathfinder : createPathFinder({
+                width : defaultBoardWidth,
+                height : defaultBoardHeight,
+                isObstacle : (x,y)=>{
+                    if(x === model.players.aPlayer.position.x && y === model.players.aPlayer.position.y){
+                        return true
+                    }
+                    if(x === model.players.bPlayer.position.x && y === model.players.bPlayer.position.y){
+                        return true
+                    }
+                    return model.board.data[y*model.board.width + x].obstacle
+                }
+            }),
+            lightcaster : createLightCaster({
+                width : defaultBoardWidth,
+                height : defaultBoardHeight,
+                isObstacle : (x,y)=>{
+                    return model.board.data[y*model.board.width + x].obstacle
+                }
+            }),
+            distance : (x,y)=>{
+                return distance(model.players.bPlayer.position.x, model.players.bPlayer.position.y, x,y)
+            }
+        }
+    },
+    applyLighting : true
 }
 
 const createEmptyBoard = (boardData) => {
@@ -54,33 +104,38 @@ const copyBoardData = (src, dst, applyLighting, players)=>{
             let dstTile = dst.data[y*dst.width + x]
             let srcTile = src.data[y*dst.width + x]
 
-            let playerA = players[0]===undefined? undefined :players[0].get('controlledPlayer')
-            let playerB = players[1]===undefined? undefined :players[1].get('controlledPlayer')
-
-            let isVisiblePlayerA = players[0]===undefined?false:players[0].get('lightcaster').isVisible(x,y)
-            let isVisiblePlayerB = players[1]===undefined?false:players[1].get('lightcaster').isVisible(x,y)
-
             let isInDistPlayerA = false
-            if(isVisiblePlayerA === true && playerA !== undefined && distance(playerA.position.x, playerA.position.y, x,y) < 5){
+            if(players.aPlayer.lightcaster.isVisible(x,y) && players.aPlayer.distance(x,y) < 3){
                 isInDistPlayerA = true
             }
 
             let isInDistPlayerB = false
-            if(isVisiblePlayerB === true && playerB !== undefined && distance(playerB.position.x, playerB.position.y, x,y) < 5){
+            if(players.bPlayer.lightcaster.isVisible(x,y) && players.bPlayer.distance(x,y) < 3){
                 isInDistPlayerB = true
             }
 
-            line += (isInDistPlayerA || isInDistPlayerB || !applyLighting)===true?'.':'X'
+            //line += (isInDistPlayerA || isInDistPlayerB || !applyLighting)===true?'.':'X'
 
-            if(dstTile.visibility === 'visible'){
+            /*if(dstTile.visibility === 'visible'){
                 dstTile.visibility = 'discovered'
-            }
+            }*/
             if(isInDistPlayerA || isInDistPlayerB || !applyLighting){
                 dstTile.layers.floor = srcTile.layers.floor
                 dstTile.layers.middle = srcTile.layers.middle
                 dstTile.layers.ceiling = srcTile.layers.ceiling
                 dstTile.obstacle = srcTile.obstacle
                 dstTile.visibility = 'visible'
+                line += ' '
+            } else {
+                if(dstTile.visibility === 'visible'){
+                    dstTile.visibility = 'discovered'
+                }
+
+                if(dstTile.visibility === 'discovered'){
+                    line += '.'
+                } else {
+                    line += 'X'
+                }
             }
         }
         console.log(line)
@@ -135,20 +190,22 @@ model = {
             return;
         }
         let controlledPlayer = ctx.get('controlledPlayer')
+        let controlledPlayerHidden = ctx.get('controlledPlayerHidden')
+
         if(controlledPlayer.target.position.x === x && controlledPlayer.target.position.y === y){
             controlledPlayer.position = {
                 x : x,
                 y : y
             }
             controlledPlayer.target.path = []
-            ctx.get('lightcaster').calculateFrom(controlledPlayer.position.x, controlledPlayer.position.y)
+            controlledPlayerHidden.lightcaster.calculateFrom(controlledPlayer.position.x, controlledPlayer.position.y)
             copyBoardData(hiddenModel.board, model.board, hiddenModel.applyLighting, hiddenModel.players)
         } else {
             controlledPlayer.target.position = {
                 x : x,
                 y : y
             }
-            controlledPlayer.target.path = ctx.get('pathfinder').findPath(controlledPlayer.position,controlledPlayer.target.position)
+            controlledPlayer.target.path = controlledPlayerHidden.pathfinder.findPath(controlledPlayer.position,controlledPlayer.target.position)
         }
     },
     endTurn(ctx) {
@@ -208,58 +265,30 @@ model = {
     }
 }
 
+hiddenModel.players.aPlayer.lightcaster.calculateFrom(model.players.aPlayer.position.x, model.players.aPlayer.position.y)
+hiddenModel.players.bPlayer.lightcaster.calculateFrom(model.players.bPlayer.position.x, model.players.bPlayer.position.y)
+copyBoardData(hiddenModel.board, model.board, hiddenModel.applyLighting, hiddenModel.players)
+
 module.exports = {
     onJoin: (ctx) =>{
         console.log('client joined '+ctx.name)
         if(model.players.aPlayer.controlled === ''){
             model.players.aPlayer.controlled = ctx.name
             ctx.set('controlledPlayer', model.players.aPlayer)
+            ctx.set('controlledPlayerHidden', hiddenModel.players.aPlayer)
             console.log('...as APlayer')
         } else if(model.players.bPlayer.controlled === '') {
             model.players.bPlayer.controlled = ctx.name
             ctx.set('controlledPlayer', model.players.bPlayer)
+            ctx.set('controlledPlayerHidden', hiddenModel.players.bPlayer)
             console.log('...as BPlayer')
         } else {
             console.log('...as Guest')
         }
-        if(ctx.get('controlledPlayer') === undefined){
-            console.log('skipping set up of light casting')
-            return
-        }
-        ctx.set('pathfinder', createPathFinder({
-            width : model.board.width,
-            height : model.board.height,
-            isObstacle : (x,y)=>{
-                if(ctx.get('controlledPlayer') !== model.players.aPlayer &&
-                    x === model.players.aPlayer.position.x && y === model.players.aPlayer.position.y){
-                    return true
-                }
-                if(ctx.get('controlledPlayer') !== model.players.bPlayer &&
-                    x === model.players.bPlayer.position.x && y === model.players.bPlayer.position.y){
-                    return true
-                }
-                return model.board.data[y*model.board.width + x].obstacle
-            }
-        }))
-        ctx.set('lightcaster', createLightCaster({
-            width : hiddenModel.board.width,
-            height : hiddenModel.board.height,
-            isObstacle : (x,y)=>{
-                return model.board.data[y*model.board.width + x].obstacle
-            }
-        }))
-        hiddenModel.players.push(ctx)
-        let controlledPlayer = ctx.get('controlledPlayer')
-        ctx.get('lightcaster').calculateFrom(controlledPlayer.position.x, controlledPlayer.position.y)
-        copyBoardData(hiddenModel.board, model.board, hiddenModel.applyLighting, hiddenModel.players)
     },
     onLeave: (ctx) =>{
         if(ctx.has('controlledPlayer')){
             ctx.get('controlledPlayer').controlled = ''
-        }
-        const index = hiddenModel.players.indexOf(ctx)
-        if (index > -1) {
-            hiddenModel.players.splice(index, 1);
         }
         console.log('client leaved '+ctx.name)
     },
