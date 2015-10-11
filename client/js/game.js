@@ -6,9 +6,11 @@ const setupGame = require('./setup')
 const createKeyboardMappings = require('./core/createKeyboardMappings')
 const createHyperionClient = require('cb-hyperion').createHyperionClient
 const createBoard = require('./core/createBoard')
-const createConsole = require('./core/createConsole')
+const createPlayer = require('./core/createPlayer')
+const createTargetPointer = require('./core/createTargetPointer')
+const createConsole = require('./console/createConsole')
 const createEditor = require('./editor/createEditor')
-const createInterpreter = require('./core/createInterpreter')
+const createInterpreter = require('./console/createInterpreter')
 
 document.addEventListener('DOMContentLoaded', function () {
 
@@ -25,12 +27,44 @@ document.addEventListener('DOMContentLoaded', function () {
         })
 
         client.then((clientCtx) => {
-            createBoard({
+            const board = createBoard({
                 clientCtx : clientCtx,
                 graphicsCtx : graphicsCtx,
-                emiter : emiter
+                emiter : emiter,
+                parent : graphicsCtx.stage
             })
 
+            createTargetPointer({
+                clientCtx : clientCtx,
+                graphicsCtx : graphicsCtx,
+                emiter : emiter,
+                name : 'aPlayer',
+                parent : board.container()
+            })
+
+            createTargetPointer({
+                clientCtx : clientCtx,
+                graphicsCtx : graphicsCtx,
+                emiter : emiter,
+                name : 'bPlayer',
+                parent : board.container()
+            })
+
+            createPlayer({
+                clientCtx : clientCtx,
+                graphicsCtx : graphicsCtx,
+                emiter : emiter,
+                name : 'aPlayer',
+                parent : board.container()
+            })
+
+            createPlayer({
+                clientCtx : clientCtx,
+                graphicsCtx : graphicsCtx,
+                emiter : emiter,
+                name : 'bPlayer',
+                parent : board.container()
+            })
 
             const guiConsole = createConsole({
                 graphicsCtx : graphicsCtx,
@@ -87,6 +121,22 @@ document.addEventListener('DOMContentLoaded', function () {
             {
                 name: 'editor',
                 url: '/assets/img/Editor/EditorControls.png'
+            },
+            {
+                name: 'mage',
+                url: '/assets/img/Commissions/Mage.png'
+            },
+            {
+                name: 'walking',
+                url: '/assets/img/Other/Walking.png'
+            },
+            {
+                name: 'tile',
+                url: '/assets/img/Objects/Tile.png'
+            },
+            {
+                name: 'fogofwar',
+                url: '/assets/img/Other/FogOfWar.png'
             }
         ],
         init: init,

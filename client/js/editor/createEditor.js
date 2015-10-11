@@ -116,6 +116,7 @@ module.exports = function createEditor(spec){
         onClick : ()=>{
             middleLayerButton.deselect()
             ceilingLayerButton.deselect()
+            emiter.emit('r4two:editor:show-obstacles', false)
             selectedLayerEditor = floorLayerButton
         }
     })
@@ -132,6 +133,7 @@ module.exports = function createEditor(spec){
         onClick : ()=>{
             floorLayerButton.deselect()
             ceilingLayerButton.deselect()
+            emiter.emit('r4two:editor:show-obstacles', true)
             selectedLayerEditor = middleLayerButton
         }
     })
@@ -148,6 +150,7 @@ module.exports = function createEditor(spec){
         onClick : ()=>{
             floorLayerButton.deselect()
             middleLayerButton.deselect()
+            emiter.emit('r4two:editor:show-obstacles', false)
             selectedLayerEditor = ceilingLayerButton
         }
     })
@@ -314,11 +317,13 @@ module.exports = function createEditor(spec){
     emiter.on('r4two:action:editor',()=>{
         editorContainer.visible = !editorContainer.visible
         if(editorContainer.visible){
-            emiter.emit('r4two:editor:enabled')
+            emiter.emit('r4two:editor:visible', true)
             emiter.emit('r4two:editor:show-obstacles', selectedEditor === obstacleEditor)
+            clientCtx.model.setApplyLighting(false)
         } else {
-            emiter.emit('r4two:editor:disabled')
+            emiter.emit('r4two:editor:visible', false)
             emiter.emit('r4two:editor:show-obstacles', false)
+            clientCtx.model.setApplyLighting(true)
         }
 
     })

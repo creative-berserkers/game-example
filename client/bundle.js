@@ -52,9 +52,11 @@
 	const createKeyboardMappings = __webpack_require__(5)
 	const createHyperionClient = __webpack_require__(6).createHyperionClient
 	const createBoard = __webpack_require__(13)
-	const createConsole = __webpack_require__(14)
-	const createEditor = __webpack_require__(15)
-	const createInterpreter = __webpack_require__(18)
+	const createPlayer = __webpack_require__(14)
+	const createTargetPointer = __webpack_require__(15)
+	const createConsole = __webpack_require__(16)
+	const createEditor = __webpack_require__(17)
+	const createInterpreter = __webpack_require__(20)
 	
 	document.addEventListener('DOMContentLoaded', function () {
 	
@@ -71,12 +73,44 @@
 	        })
 	
 	        client.then((clientCtx) => {
-	            createBoard({
+	            const board = createBoard({
 	                clientCtx : clientCtx,
 	                graphicsCtx : graphicsCtx,
-	                emiter : emiter
+	                emiter : emiter,
+	                parent : graphicsCtx.stage
 	            })
 	
+	            createTargetPointer({
+	                clientCtx : clientCtx,
+	                graphicsCtx : graphicsCtx,
+	                emiter : emiter,
+	                name : 'aPlayer',
+	                parent : board.container()
+	            })
+	
+	            createTargetPointer({
+	                clientCtx : clientCtx,
+	                graphicsCtx : graphicsCtx,
+	                emiter : emiter,
+	                name : 'bPlayer',
+	                parent : board.container()
+	            })
+	
+	            createPlayer({
+	                clientCtx : clientCtx,
+	                graphicsCtx : graphicsCtx,
+	                emiter : emiter,
+	                name : 'aPlayer',
+	                parent : board.container()
+	            })
+	
+	            createPlayer({
+	                clientCtx : clientCtx,
+	                graphicsCtx : graphicsCtx,
+	                emiter : emiter,
+	                name : 'bPlayer',
+	                parent : board.container()
+	            })
 	
 	            const guiConsole = createConsole({
 	                graphicsCtx : graphicsCtx,
@@ -133,6 +167,22 @@
 	            {
 	                name: 'editor',
 	                url: '/assets/img/Editor/EditorControls.png'
+	            },
+	            {
+	                name: 'mage',
+	                url: '/assets/img/Commissions/Mage.png'
+	            },
+	            {
+	                name: 'walking',
+	                url: '/assets/img/Other/Walking.png'
+	            },
+	            {
+	                name: 'tile',
+	                url: '/assets/img/Objects/Tile.png'
+	            },
+	            {
+	                name: 'fogofwar',
+	                url: '/assets/img/Other/FogOfWar.png'
 	            }
 	        ],
 	        init: init,
@@ -641,6 +691,8 @@
 /* 6 */
 /***/ function(module, exports, __webpack_require__) {
 
+	'use strict'
+	
 	const Multiobserve = __webpack_require__(7).Multiobserve
 	const validateMessage = __webpack_require__(8).validateMessage
 	const createObjectStore = __webpack_require__(9).createObjectStore
@@ -670,21 +722,22 @@
 	    const newConnectionFn = spec.newConnectionFn
 	    const errorFn = spec.errorFn
 	    const wss = spec.wss
-	    const index = spec.index
+	    const model = spec.modelSpec.model
 	    
-	    objectStore.registerObject(index,0, 'index')
+	    objectStore.registerObject(model,0, 'index')
 	
 	    wss.on('connection', (ws) => {
 	        if (typeof newConnectionFn === 'function') {
 	            newConnectionFn(ws)
 	        }
 	
-	        objectStore.bind(index, ws)
+	        objectStore.bind(model, ws)
 	
 	        const name = guid()
+	        const store = new Map()
 	        const ctx = Object.freeze({
 	            name,
-	            sendMessage: (adress, msg) => {
+	            emit: (adress, msg) => {
 	                ws.send(ws, {
 	                    type: 'message',
 	                    adress: adress,
@@ -706,12 +759,21 @@
 	                if(ws._socket !== null){
 	                    ws._socket.server.close()
 	                }
+	            },
+	            set :(key, value)=>{
+	                return store.set(key, value)
+	            },
+	            get : (key) => {
+	                return store.get(key)
+	            },
+	            has : (key) =>{
+	                return store.has(key)
 	            }
 	        })
 	
 	        ws.on('message', (message) => {
 	            try {
-	                var validMessage = validateMessage(JSON.parse(message))
+	                const validMessage = validateMessage(JSON.parse(message))
 	                if (validMessage.type === 'object-call') {
 	                    handleObjectCall(ws, ctx, validMessage)
 	                }
@@ -722,18 +784,21 @@
 	        })
 	
 	        ws.on('close', function close() {
+	            spec.modelSpec.onLeave(ctx)
 	            objectStore.allBindObjects(ws).forEach((ob) => {
 	                objectStore.unbind(ob, ws)
 	            })
 	        })
-	        
-	        handleMethodResult(ws, 'index' , -1, index)
+	        spec.modelSpec.onJoin(ctx)
+	        handleMethodResult(ws, 'index' , -1, model)
 	    })
 	
 	
 	    function handleObjectCall(ws,ctx, msg) {
-	        var obj= objectStore.lookupByName(msg.name)
-	        if (obj === undefined) return
+	        const obj= objectStore.lookupByName(msg.name)
+	        if (obj === undefined) {
+	            return
+	        }
 	
 	        const node = Multiobserve.findNode(obj, msg.path)
 	
@@ -1535,13 +1600,13 @@
 	    const clientCtx = spec.clientCtx
 	    const graphicsCtx = spec.graphicsCtx
 	    const emiter = spec.emiter
+	    const parent = spec.parent
 	
 	    const model = clientCtx.model
 	
 	    const resources = graphicsCtx.resources
-	    const stage = graphicsCtx.stage;
 	
-	    const debug = true
+	    const debug = false
 	    const board = new PIXI.Container()
 	
 	    board.position.x = 48
@@ -1549,18 +1614,30 @@
 	    board.hitArea = new PIXI.Rectangle(0, 0, model.board.width*resources.floor.frameWidth, model.board.height*resources.floor.frameWidth);
 	    board.interactive = true
 	    board.buttonMode = true
+	
+	    let disableInput = false
 	    board.on('mousedown', (mouseData)=>{
 	        const pos = mouseData.data.getLocalPosition(board)
 	        const x = Math.floor(pos.x  / resources.floor.frameWidth)
 	        const y = Math.floor(pos.y / resources.floor.frameWidth)
 	        const tile = model.board.data[y*model.board.width+x]
-	        emiter.emit('r4two:board:tileselect',{
-	            position : {
-	                x : x,
-	                y : y,
-	            },
-	            obstacle : tile.obstacle
-	        })
+	        if(tile.visibility === 'visible'){
+	            emiter.emit('r4two:board:tileselect',{
+	                position : {
+	                    x : x,
+	                    y : y,
+	                },
+	                obstacle : tile.obstacle
+	            })
+	            if(disableInput === true){
+	                return
+	            }
+	            model.setTargetTo(x, y)
+	        }
+	    })
+	
+	    emiter.on('r4two:editor:visible', (flag)=>{
+	        disableInput = flag
 	    })
 	
 	    const createTileLayer = (data, name, tile, i) => {
@@ -1573,6 +1650,9 @@
 	        clientCtx.createChangeListener({
 	            path:['board','data',i.toString(),'layers',name],
 	            onChange : (path, oldValue, newValue, next)=>{
+	                if(newValue === ''){
+	                    newValue = 'wall_5'
+	                }
 	                const sp = newValue.split('_')
 	                ceiling.texture = resources[sp[0]].frames[sp[1]]
 	                next()
@@ -1580,6 +1660,28 @@
 	        })
 	
 	        tile.addChild(ceiling)
+	    }
+	
+	    const createTileFogOfWar = (tile, i)=>{
+	        const fogofwar = new PIXI.Sprite(resources.fogofwar.frames[0])
+	        fogofwar.alpha = 0.5
+	        if(tile.visibility === 'discovered'){
+	            fogofwar.visible = true
+	        } else {
+	            fogofwar.visible = false
+	        }
+	        clientCtx.createChangeListener({
+	            path:['board','data',i.toString(),'visibility'],
+	            onChange : (path, oldValue, newValue, next)=>{
+	                if(newValue === 'discovered'){
+	                    fogofwar.visible = true
+	                } else {
+	                    fogofwar.visible = false
+	                }
+	                next()
+	            }
+	        })
+	        tile.addChild(fogofwar)
 	    }
 	
 	    model.board.data.forEach((el, i)=> {
@@ -1591,6 +1693,8 @@
 	        createTileLayer(el.layers.floor, 'floor', tile, i)
 	        createTileLayer(el.layers.middle, 'middle', tile, i)
 	        createTileLayer(el.layers.ceiling, 'ceiling', tile, i)
+	
+	        createTileFogOfWar(tile, i)
 	
 	        if(debug === true){
 	            const texObst = resources.debug.frames[0]
@@ -1617,16 +1721,222 @@
 	        board.addChild(tile)
 	    })
 	
-	    stage.addChild(board)
+	    parent.addChild(board)
 	
 	    return {
-	
+	        container : ()=>{
+	            return board
+	        }
 	    }
 	}
 
 
 /***/ },
 /* 14 */
+/***/ function(module, exports) {
+
+	/**
+	 * Created by odrin on 23.09.2015.
+	 */
+	'use strict'
+	/*global PIXI */
+	
+	module.exports = function createPlayer(spec){
+	    const clientCtx = spec.clientCtx
+	    const graphicsCtx = spec.graphicsCtx
+	    const emiter = spec.emiter
+	    const name = spec.name
+	    const parent = spec.parent
+	
+	    const stage = graphicsCtx.stage
+	    const model = clientCtx.model
+	    const resources = graphicsCtx.resources
+	    const player = model.players[name]
+	    const frames = resources[player.className].frames
+	    const frameWidth = resources[player.className].frameWidth
+	
+	    const playerContainer = new PIXI.Container()
+	    playerContainer.position.x = Number(player.position.x) * frameWidth
+	    playerContainer.position.y = Number(player.position.y) * frameWidth
+	
+	
+	    const directions = {
+	        up : Symbol(),
+	        down : Symbol(),
+	        left : Symbol(),
+	        right : Symbol(),
+	        iddle : Symbol()
+	    }
+	
+	    clientCtx.createChangeListener({
+	        path:['players',name, 'position'],
+	        onChange : (path, oldValue, newValue, next)=>{
+	            playerContainer.position.x = Number(newValue.x) * frameWidth
+	            playerContainer.position.y = Number(newValue.y) * frameWidth
+	            next()
+	        }
+	    })
+	
+	
+	    let createAnimation = (frames, visible)=>{
+	        let animation = new PIXI.extras.MovieClip(frames)
+	        animation.visible = visible
+	        animation.animationSpeed = 0.1
+	        animation.gotoAndPlay(0)
+	        playerContainer.addChild(animation)
+	    }
+	
+	    let animations = {}
+	    animations[directions.down] = createAnimation([frames[0], frames[1], frames[2], frames[3]], true)
+	    animations[directions.left] = createAnimation([frames[4], frames[5], frames[6], frames[7]], false)
+	    animations[directions.right] = createAnimation([frames[8], frames[9], frames[10], frames[11]], false)
+	    animations[directions.up] = createAnimation([frames[12], frames[13], frames[14], frames[15]], false)
+	
+	    parent.addChild(playerContainer)
+	}
+
+/***/ },
+/* 15 */
+/***/ function(module, exports) {
+
+	/**
+	 * Created by odrin on 23.09.2015.
+	 */
+	'use strict'
+	/*global PIXI */
+	
+	module.exports = function createTargetPointer(spec){
+	    const clientCtx = spec.clientCtx
+	    const graphicsCtx = spec.graphicsCtx
+	    const emiter = spec.emiter
+	    const name = spec.name
+	    const parent = spec.parent
+	
+	    const resources = graphicsCtx.resources
+	    const model = clientCtx.model
+	    const player = model.players[name]
+	    const frameWidth = resources[player.className].frameWidth
+	
+	    const pathContainer = new PIXI.Container()
+	    parent.addChild(pathContainer)
+	    const pathWithSteps = []
+	
+	    const selectTexture = (previous, current, next)=>{
+	        if(previous === undefined){
+	            if(current.y === next.y){
+	                if(current.x < next.x){
+	                    return resources.walking.frames[11]
+	                } else {
+	                    return resources.walking.frames[8]
+	                }
+	            }
+	            if(current.x === next.x){
+	                if(current.y < next.y){
+	                    return resources.walking.frames[10]
+	                } else {
+	                    return resources.walking.frames[5]
+	                }
+	            }
+	        }
+	        if(next === undefined){
+	            if(current.y === previous.y){
+	                if(current.x < previous.x){
+	                    return resources.walking.frames[11]
+	                } else {
+	                    return resources.walking.frames[8]
+	                }
+	            }
+	            if(current.x === previous.x){
+	                if(current.y < previous.y){
+	                    return resources.walking.frames[10]
+	                } else {
+	                    return resources.walking.frames[5]
+	                }
+	            }
+	        }
+	        if(previous.x === next.x){
+	            return resources.walking.frames[12]
+	        }
+	        if(previous.y === next.y){
+	            return resources.walking.frames[2]
+	        }
+	        if(previous.y - next.y === -1 && previous.x - next.x === -1){
+	            if(previous.y === current.y){
+	                return resources.walking.frames[6]
+	            } else {
+	                return resources.walking.frames[3]
+	            }
+	
+	        }
+	        if(previous.y - next.y === 1 && previous.x - next.x === 1){
+	            if(previous.y === current.y){
+	                return resources.walking.frames[3]
+	            } else {
+	                return resources.walking.frames[6]
+	            }
+	        }
+	        if(previous.y - next.y === 1 && previous.x - next.x === -1){
+	            if(previous.y === current.y){
+	                return resources.walking.frames[7]
+	            } else {
+	                return resources.walking.frames[9]
+	            }
+	        }
+	        if(previous.y - next.y === -1 && previous.x - next.x === 1){
+	            if(previous.y === current.y){
+	                return resources.walking.frames[9]
+	            } else {
+	                return resources.walking.frames[7]
+	            }
+	        }
+	        return resources.walking.frames[2]
+	    }
+	
+	    const updatePath = (path)=>{
+	        while(pathWithSteps.length < path.length){
+	            let pathStep = new PIXI.Sprite(resources.walking.frames[2])
+	            pathWithSteps.push(pathStep)
+	            pathContainer.addChild(pathStep)
+	        }
+	        path.forEach((step, i)=>{
+	            let pathStep = pathWithSteps[i]
+	            pathStep.position.x = step.x * frameWidth
+	            pathStep.position.y = step.y * frameWidth
+	            pathStep.texture = selectTexture(path[i-1], path[i], path[i+1])
+	            pathStep.visible = true
+	        })
+	        for( let i = path.length; i < pathWithSteps.length ; ++i){
+	            pathWithSteps[i].visible = false
+	        }
+	    }
+	    clientCtx.createChangeListener({
+	        path:['players',name,'target', 'path'],
+	        onChange : (path, oldValue, newValue, next)=>{
+	            updatePath(newValue)
+	            next()
+	        }
+	    })
+	
+	    let disableInput = false
+	
+	    let targetId = name === 'aPlayer' ? 0 : 1
+	    const targetPointer = new PIXI.Sprite(resources.walking.frames[targetId])
+	    targetPointer.position.x = player.target.position.x * frameWidth
+	    targetPointer.position.y = player.target.position.y * frameWidth
+	    parent.addChild(targetPointer)
+	
+	    clientCtx.createChangeListener({
+	        path:['players',name,'target', 'position'],
+	        onChange : (path, oldValue, newValue, next)=>{
+	            targetPointer.position.x = Number(newValue.x) * frameWidth
+	            targetPointer.position.y = Number(newValue.y) * frameWidth
+	            next()
+	        }
+	    })
+	}
+
+/***/ },
+/* 16 */
 /***/ function(module, exports) {
 
 	/**
@@ -1770,7 +2080,7 @@
 
 
 /***/ },
-/* 15 */
+/* 17 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/**
@@ -1779,8 +2089,8 @@
 	'use strict'
 	/*global PIXI */
 	
-	const createEditorIcon = __webpack_require__(16)
-	const createTileSetPalette = __webpack_require__(17)
+	const createEditorIcon = __webpack_require__(18)
+	const createTileSetPalette = __webpack_require__(19)
 	
 	module.exports = function createEditor(spec){
 	    const graphicsCtx = spec.graphicsCtx
@@ -1891,6 +2201,7 @@
 	        onClick : ()=>{
 	            middleLayerButton.deselect()
 	            ceilingLayerButton.deselect()
+	            emiter.emit('r4two:editor:show-obstacles', false)
 	            selectedLayerEditor = floorLayerButton
 	        }
 	    })
@@ -1907,6 +2218,7 @@
 	        onClick : ()=>{
 	            floorLayerButton.deselect()
 	            ceilingLayerButton.deselect()
+	            emiter.emit('r4two:editor:show-obstacles', true)
 	            selectedLayerEditor = middleLayerButton
 	        }
 	    })
@@ -1923,6 +2235,7 @@
 	        onClick : ()=>{
 	            floorLayerButton.deselect()
 	            middleLayerButton.deselect()
+	            emiter.emit('r4two:editor:show-obstacles', false)
 	            selectedLayerEditor = ceilingLayerButton
 	        }
 	    })
@@ -2089,11 +2402,13 @@
 	    emiter.on('r4two:action:editor',()=>{
 	        editorContainer.visible = !editorContainer.visible
 	        if(editorContainer.visible){
-	            emiter.emit('r4two:editor:enabled')
+	            emiter.emit('r4two:editor:visible', true)
 	            emiter.emit('r4two:editor:show-obstacles', selectedEditor === obstacleEditor)
+	            clientCtx.model.setApplyLighting(false)
 	        } else {
-	            emiter.emit('r4two:editor:disabled')
+	            emiter.emit('r4two:editor:visible', false)
 	            emiter.emit('r4two:editor:show-obstacles', false)
+	            clientCtx.model.setApplyLighting(true)
 	        }
 	
 	    })
@@ -2167,7 +2482,7 @@
 	}
 
 /***/ },
-/* 16 */
+/* 18 */
 /***/ function(module, exports) {
 
 	/**
@@ -2231,7 +2546,7 @@
 	}
 
 /***/ },
-/* 17 */
+/* 19 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/**
@@ -2240,7 +2555,7 @@
 	'use strict'
 	/*global PIXI */
 	
-	const createEditorIcon = __webpack_require__(16)
+	const createEditorIcon = __webpack_require__(18)
 	
 	module.exports = function createTileSetPalette(spec){
 	    const graphicsCtx = spec.graphicsCtx
@@ -2341,7 +2656,7 @@
 	}
 
 /***/ },
-/* 18 */
+/* 20 */
 /***/ function(module, exports) {
 
 	/**

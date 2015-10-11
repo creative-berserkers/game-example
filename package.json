@@ -4,8 +4,10 @@
   "description": "Simple game example",
   "main": "game/src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "webpack-watch": "node_modules/webpack/bin/webpack.js -w"
+    "test-server": "node node_modules/mocha/bin/_mocha --ui tdd --recursive ./server/test",
+    "test-client": "node node_modules/mocha/bin/_mocha --ui tdd --recursive ./client/test",
+    "webpack-watch": "node_modules/webpack/bin/webpack.js -w",
+    "run-server": "node server/index.js"
   },
   "repository": {
     "type": "git",
@@ -18,11 +20,13 @@
   },
   "devDependencies": {
     "webpack": "^1.12.1",
-    "webpack-dev-server": "^1.10.1"
+    "webpack-dev-server": "^1.10.1",
+    "chai": "^3.2.0",
+    "mocha": "^2.3.2"
   },
   "dependencies": {
     "cb-http-ws-server": "0.0.20",
-    "cb-hyperion": "1.6.9",
+    "cb-hyperion": "1.8.1",
     "eventemitter3": "1.1.1",
     "jasmine-node": "^1.14.5"
   }

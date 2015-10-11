@@ -5,13 +5,13 @@ module.exports = function createBoard(spec){
     const clientCtx = spec.clientCtx
     const graphicsCtx = spec.graphicsCtx
     const emiter = spec.emiter
+    const parent = spec.parent
 
     const model = clientCtx.model
 
     const resources = graphicsCtx.resources
-    const stage = graphicsCtx.stage;
 
-    const debug = true
+    const debug = false
     const board = new PIXI.Container()
 
     board.position.x = 48
@@ -19,18 +19,30 @@ module.exports = function createBoard(spec){
     board.hitArea = new PIXI.Rectangle(0, 0, model.board.width*resources.floor.frameWidth, model.board.height*resources.floor.frameWidth);
     board.interactive = true
     board.buttonMode = true
+
+    let disableInput = false
     board.on('mousedown', (mouseData)=>{
         const pos = mouseData.data.getLocalPosition(board)
         const x = Math.floor(pos.x  / resources.floor.frameWidth)
         const y = Math.floor(pos.y / resources.floor.frameWidth)
         const tile = model.board.data[y*model.board.width+x]
-        emiter.emit('r4two:board:tileselect',{
-            position : {
-                x : x,
-                y : y,
-            },
-            obstacle : tile.obstacle
-        })
+        if(tile.visibility === 'visible'){
+            emiter.emit('r4two:board:tileselect',{
+                position : {
+                    x : x,
+                    y : y,
+                },
+                obstacle : tile.obstacle
+            })
+            if(disableInput === true){
+                return
+            }
+            model.setTargetTo(x, y)
+        }
+    })
+
+    emiter.on('r4two:editor:visible', (flag)=>{
+        disableInput = flag
     })
 
     const createTileLayer = (data, name, tile, i) => {
@@ -43,6 +55,9 @@ module.exports = function createBoard(spec){
         clientCtx.createChangeListener({
             path:['board','data',i.toString(),'layers',name],
             onChange : (path, oldValue, newValue, next)=>{
+                if(newValue === ''){
+                    newValue = 'wall_5'
+                }
                 const sp = newValue.split('_')
                 ceiling.texture = resources[sp[0]].frames[sp[1]]
                 next()
@@ -50,6 +65,28 @@ module.exports = function createBoard(spec){
         })
 
         tile.addChild(ceiling)
+    }
+
+    const createTileFogOfWar = (tile, i)=>{
+        const fogofwar = new PIXI.Sprite(resources.fogofwar.frames[0])
+        fogofwar.alpha = 0.5
+        if(tile.visibility === 'discovered'){
+            fogofwar.visible = true
+        } else {
+            fogofwar.visible = false
+        }
+        clientCtx.createChangeListener({
+            path:['board','data',i.toString(),'visibility'],
+            onChange : (path, oldValue, newValue, next)=>{
+                if(newValue === 'discovered'){
+                    fogofwar.visible = true
+                } else {
+                    fogofwar.visible = false
+                }
+                next()
+            }
+        })
+        tile.addChild(fogofwar)
     }
 
     model.board.data.forEach((el, i)=> {
@@ -61,6 +98,8 @@ module.exports = function createBoard(spec){
         createTileLayer(el.layers.floor, 'floor', tile, i)
         createTileLayer(el.layers.middle, 'middle', tile, i)
         createTileLayer(el.layers.ceiling, 'ceiling', tile, i)
+
+        createTileFogOfWar(tile, i)
 
         if(debug === true){
             const texObst = resources.debug.frames[0]
@@ -87,9 +126,11 @@ module.exports = function createBoard(spec){
         board.addChild(tile)
     })
 
-    stage.addChild(board)
+    parent.addChild(board)
 
     return {
-
+        container : ()=>{
+            return board
+        }
     }
 }
