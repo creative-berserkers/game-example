@@ -67,7 +67,7 @@ module.exports = function createBoard(spec){
         tile.addChild(ceiling)
     }
 
-    const createTileFogOfWar = (tile, i)=>{
+    const createTileFogOfWar = (tile, tileSprite, i)=>{
         const fogofwar = new PIXI.Sprite(resources.fogofwar.frames[0])
         fogofwar.alpha = 0.5
         if(tile.visibility === 'discovered'){
@@ -86,7 +86,7 @@ module.exports = function createBoard(spec){
                 next()
             }
         })
-        tile.addChild(fogofwar)
+        tileSprite.addChild(fogofwar)
     }
 
     model.board.data.forEach((el, i)=> {
@@ -99,7 +99,7 @@ module.exports = function createBoard(spec){
         createTileLayer(el.layers.middle, 'middle', tile, i)
         createTileLayer(el.layers.ceiling, 'ceiling', tile, i)
 
-        createTileFogOfWar(tile, i)
+        createTileFogOfWar(el, tile, i)
 
         if(debug === true){
             const texObst = resources.debug.frames[0]

@@ -1662,27 +1662,27 @@
 	        tile.addChild(ceiling)
 	    }
 	
-	    const createTileFogOfWar = (tile, i)=>{
-	        const fogofwar = new PIXI.Sprite(resources.fogofwar.frames[0])
-	        fogofwar.alpha = 0.5
-	        if(tile.visibility === 'discovered'){
-	            fogofwar.visible = true
-	        } else {
-	            fogofwar.visible = false
-	        }
-	        clientCtx.createChangeListener({
-	            path:['board','data',i.toString(),'visibility'],
-	            onChange : (path, oldValue, newValue, next)=>{
-	                if(newValue === 'discovered'){
-	                    fogofwar.visible = true
-	                } else {
-	                    fogofwar.visible = false
-	                }
-	                next()
-	            }
-	        })
-	        tile.addChild(fogofwar)
-	    }
+		const createTileFogOfWar = (tile, tileSprite, i)=>{
+			const fogofwar = new PIXI.Sprite(resources.fogofwar.frames[0])
+			fogofwar.alpha = 0.5
+			if(tile.visibility === 'discovered'){
+				fogofwar.visible = true
+			} else {
+				fogofwar.visible = false
+			}
+			clientCtx.createChangeListener({
+				path:['board','data',i.toString(),'visibility'],
+				onChange : (path, oldValue, newValue, next)=>{
+					if(newValue === 'discovered'){
+						fogofwar.visible = true
+					} else {
+						fogofwar.visible = false
+					}
+					next()
+				}
+			})
+			tileSprite.addChild(fogofwar)
+		}
 	
 	    model.board.data.forEach((el, i)=> {
 	
@@ -1694,7 +1694,7 @@
 	        createTileLayer(el.layers.middle, 'middle', tile, i)
 	        createTileLayer(el.layers.ceiling, 'ceiling', tile, i)
 	
-	        createTileFogOfWar(tile, i)
+	        createTileFogOfWar(el, tile, i)
 	
 	        if(debug === true){
 	            const texObst = resources.debug.frames[0]
