@@ -6,7 +6,7 @@
   "scripts": {
     "test-server": "node node_modules/mocha/bin/_mocha --ui tdd --recursive ./server/test",
     "test-client": "node node_modules/mocha/bin/_mocha --ui tdd --recursive ./client/test",
-    "webpack-watch": "node_modules/webpack/bin/webpack.js -w",
+    "webpack-watch": "node node_modules/webpack/bin/webpack.js -w",
     "run-server": "node server/index.js"
   },
   "repository": {
@@ -26,7 +26,7 @@
   },
   "dependencies": {
     "cb-http-ws-server": "0.0.22",
-    "cb-hyperion": "1.8.2",
+    "cb-hyperion": "1.8.3",
     "eventemitter3": "1.1.1",
     "jasmine-node": "^1.14.5"
   }

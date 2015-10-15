@@ -26,12 +26,12 @@ hiddenModel = {
                 width : defaultBoardWidth,
                 height : defaultBoardHeight,
                 isObstacle : (x,y)=>{
-                    if(x === model.players.aPlayer.position.x && y === model.players.aPlayer.position.y){
+                    /*if(x === model.players.aPlayer.position.x && y === model.players.aPlayer.position.y){
                         return true
                     }
                     if(x === model.players.bPlayer.position.x && y === model.players.bPlayer.position.y){
                         return true
-                    }
+                    }*/
                     return model.board.data[y*model.board.width + x].obstacle
                 }
             }),
@@ -51,12 +51,12 @@ hiddenModel = {
                 width : defaultBoardWidth,
                 height : defaultBoardHeight,
                 isObstacle : (x,y)=>{
-                    if(x === model.players.aPlayer.position.x && y === model.players.aPlayer.position.y){
+                    /*if(x === model.players.aPlayer.position.x && y === model.players.aPlayer.position.y){
                         return true
                     }
                     if(x === model.players.bPlayer.position.x && y === model.players.bPlayer.position.y){
                         return true
-                    }
+                    }*/
                     return model.board.data[y*model.board.width + x].obstacle
                 }
             }),
