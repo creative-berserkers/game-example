@@ -20,7 +20,7 @@ const map = [
 
 describe('createPathFinder Test', function() {
     it('should find correct path', function() {
-        const PathFinder = createPathFinder({
+        const findPath = createPathFinder({
             width : 8,
             height : 8,
             isObstacle : (x,y)=>{
@@ -28,7 +28,7 @@ describe('createPathFinder Test', function() {
             }
         })
 
-        const path = PathFinder.findPath({x:4,y:4},{x:6,y:5})
+        const path = findPath({x:4,y:4},{x:6,y:5})
 
         expect(path).to.eql([
             {x:4,y:4},
@@ -47,7 +47,7 @@ describe('createPathFinder Test', function() {
     })
 
     it('should return empty path', function() {
-        const PathFinder = createPathFinder({
+        const findPath = createPathFinder({
             width : 8,
             height : 8,
             isObstacle : (x,y)=>{
@@ -55,13 +55,13 @@ describe('createPathFinder Test', function() {
             }
         })
 
-        const path = PathFinder.findPath({x:4,y:0},{x:4,y:0})
+        const path = findPath({x:4,y:0},{x:4,y:0})
 
         expect(path).to.eql([])
     })
 
     it('should return correct path', function() {
-        const PathFinder = createPathFinder({
+        const findPath = createPathFinder({
             width : 8,
             height : 8,
             isObstacle : (x,y)=>{
@@ -69,13 +69,13 @@ describe('createPathFinder Test', function() {
             }
         })
 
-        const path = PathFinder.findPath({x:4,y:1},{x:4,y:0})
+        const path = findPath({x:4,y:1},{x:4,y:0})
 
         expect(path).to.eql([{x:4,y:1},{x:4,y:0}])
     })
 
     it('should not find path', function() {
-        const PathFinder = createPathFinder({
+        const findPath = createPathFinder({
             width : 8,
             height : 8,
             isObstacle : (x,y)=>{
@@ -83,13 +83,13 @@ describe('createPathFinder Test', function() {
             }
         })
 
-        const path = PathFinder.findPath({x:2,y:3},{x:0,y:3})
+        const path = findPath({x:2,y:3},{x:0,y:3})
 
         expect(path).to.eql([])
     })
 
     it('should not find path', function() {
-        const PathFinder = createPathFinder({
+        const findPath = createPathFinder({
             width : 8,
             height : 8,
             isObstacle : (x,y)=>{
@@ -97,13 +97,13 @@ describe('createPathFinder Test', function() {
             }
         })
 
-        const path = PathFinder.findPath({x:1,y:2},{x:0,y:2})
+        const path = findPath({x:1,y:2},{x:0,y:2})
 
         expect(path).to.eql([])
     })
 
     it('should not find path', function() {
-        const PathFinder = createPathFinder({
+        const findPath = createPathFinder({
             width : 8,
             height : 8,
             isObstacle : (x,y)=>{
@@ -111,7 +111,7 @@ describe('createPathFinder Test', function() {
             }
         })
 
-        const path = PathFinder.findPath({x:0,y:2},{x:1,y:2})
+        const path = findPath({x:0,y:2},{x:1,y:2})
 
         expect(path).to.eql([])
     })

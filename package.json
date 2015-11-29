@@ -26,7 +26,7 @@
   },
   "dependencies": {
     "cb-http-ws-server": "0.0.22",
-    "cb-hyperion": "1.8.3",
+    "cb-hyperion": "1.11.1",
     "eventemitter3": "1.1.1",
     "jasmine-node": "^1.14.5"
   }

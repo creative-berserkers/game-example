@@ -118,7 +118,7 @@ module.exports = function createTargetPointer(spec){
 
     let disableInput = false
 
-    let targetId = name === 'aPlayer' ? 0 : 1
+    let targetId = name
     const targetPointer = new PIXI.Sprite(resources.walking.frames[targetId])
     targetPointer.position.x = player.target.position.x * frameWidth
     targetPointer.position.y = player.target.position.y * frameWidth

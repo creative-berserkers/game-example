@@ -8,12 +8,12 @@ module.exports = function createPathFinder(spec){
     const mapHeight = spec.height
     const isObstacle = spec.isObstacle
 
-    const map = []
+    const map = new Array(mapWidth*mapHeight)
     for(let i=0;i<mapWidth*mapHeight; ++i){
-        map.push({
+        map[i] = {
             score:-1,
             done :false
-        })
+        }
     }
 
     const clearMap = ()=>{
@@ -34,16 +34,7 @@ module.exports = function createPathFinder(spec){
 
     const directions = [{x:0,y:-1}, {x:1,y:0},{x:0,y:+1},{x:-1,y:0}]
 
-    const lastFrom = {
-        x : -1,
-        y : -1
-    }
     const precalculateFrom = (from)=>{
-        if(lastFrom.x === from.x && lastFrom.y === from.y){
-            return false
-        }
-        lastFrom.x = from.x
-        lastFrom.y = from.y
 
         clearMap()
 
@@ -75,38 +66,21 @@ module.exports = function createPathFinder(spec){
         return true
     }
 
-    const dumpData = (current, path, from , to)=>{
-        console.log(current)
-        console.log(path)
-        console.log(`from ${from.x}, ${from.y} to:${to.x}, ${to.y}`)
-        console.log('Score: ----------------------------------------------')
-        for(let y=0;y<mapHeight;++y){
-            let line = ''
-            for(let x=0;x<mapWidth;++x){
-                line += map[y*mapWidth+x].score+' '
-            }
-            console.log(line)
-        }
-        console.log('Done: ----------------------------------------------')
-        for(let y=0;y<mapHeight;++y){
-            let line = ''
-            for(let x=0;x<mapWidth;++x){
-                line += (map[y*mapWidth+x].done === true ? 1 : 0)+' '
-            }
-            console.log(line)
-        }
-    }
-
     const findPrecalculatedPath = (from, to)=>{
+
+        if(from.x === to.x && from.y === to.y ||
+            isObstacle(from.x, from.y) ||
+            isObstacle(to.x, to.y)){
+            return []
+        }
+        precalculateFrom(from)
+        if(getTarget(to.x, to.y).score === -1){
+            return []
+        }
+
         let current = to
         let path = [to]
-        let counter = 0
         while(!(current.x === from.x && current.y === from.y)){
-            counter ++
-            if(counter > mapWidth * mapHeight + 20){
-                dumpData(current, path, from , to)
-                return path
-            }
             let newCurrent = directions.reduce((prev, delta)=>{
                 let prevScore = getTarget(prev.x, prev.y).score
                 let x = current.x + delta.x
@@ -125,27 +99,5 @@ module.exports = function createPathFinder(spec){
         return path
     }
 
-
-    return {
-        findPath(from, to){
-            if(from.x === to.x && from.y === to.y){
-                return []
-            }
-            if(isObstacle(from.x, from.y)){
-                return []
-            }
-            if(isObstacle(to.x, to.y)){
-                return []
-            }
-            let skipped = precalculateFrom(from)
-            if(getTarget(to.x, to.y).score === -1){
-                return []
-            }
-            return findPrecalculatedPath(from, to)
-        },
-        invalidateCache : ()=>{
-            lastFrom.x = -1
-            lastFrom.y = -1
-        }
-    }
+    return findPrecalculatedPath
 }

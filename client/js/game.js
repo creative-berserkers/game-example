@@ -7,6 +7,7 @@ const createKeyboardMappings = require('./core/createKeyboardMappings')
 const createHyperionClient = require('cb-hyperion').createHyperionClient
 const createBoard = require('./core/createBoard')
 const createPlayer = require('./core/createPlayer')
+const createMonster = require('./core/createMonster')
 const createTargetPointer = require('./core/createTargetPointer')
 const createConsole = require('./console/createConsole')
 const createEditor = require('./editor/createEditor')
@@ -38,7 +39,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 clientCtx : clientCtx,
                 graphicsCtx : graphicsCtx,
                 emiter : emiter,
-                name : 'aPlayer',
+                name : '0',
                 parent : board.container()
             })
 
@@ -46,7 +47,25 @@ document.addEventListener('DOMContentLoaded', function () {
                 clientCtx : clientCtx,
                 graphicsCtx : graphicsCtx,
                 emiter : emiter,
-                name : 'bPlayer',
+                name : '1',
+                parent : board.container()
+            })
+
+            clientCtx.model.monsters.forEach((el, index)=>{
+                createMonster({
+                    clientCtx : clientCtx,
+                    graphicsCtx : graphicsCtx,
+                    emiter : emiter,
+                    id : index,
+                    parent : board.container()
+                })
+            })
+
+            createPlayer({
+                clientCtx : clientCtx,
+                graphicsCtx : graphicsCtx,
+                emiter : emiter,
+                name : '0',
                 parent : board.container()
             })
 
@@ -54,15 +73,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 clientCtx : clientCtx,
                 graphicsCtx : graphicsCtx,
                 emiter : emiter,
-                name : 'aPlayer',
-                parent : board.container()
-            })
-
-            createPlayer({
-                clientCtx : clientCtx,
-                graphicsCtx : graphicsCtx,
-                emiter : emiter,
-                name : 'bPlayer',
+                name : '1',
                 parent : board.container()
             })
 
@@ -137,6 +148,14 @@ document.addEventListener('DOMContentLoaded', function () {
             {
                 name: 'fogofwar',
                 url: '/assets/img/Other/FogOfWar.png'
+            },
+            {
+                name: 'humanoid0',
+                url: '/assets/img/Characters/Humanoid0.png'
+            },
+            {
+                name: 'humanoid1',
+                url: '/assets/img/Characters/Humanoid1.png'
             }
         ],
         init: init,
