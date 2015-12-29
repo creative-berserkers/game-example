@@ -1,8 +1,11 @@
 'use strict'
 /*global PIXI */
 
+const R = require('ramda')
 const EventEmitter = require('eventemitter3');
 const setupGame = require('./setup')
+const io = require('socket.io-client')
+const createProxyFunction = require('cb-proxy')
 const createKeyboardMappings = require('./core/createKeyboardMappings')
 const createHyperionClient = require('cb-hyperion').createHyperionClient
 const createBoard = require('./core/createBoard')
@@ -17,8 +20,45 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const debug = true
     const init = (graphicsCtx) => {
+
+        //start of new code
+        const socket = io('https://localhost:8443', {secure : true})
+        //client side
+        socket.on('news', function (data) {
+            console.log(data);
+            socket.emit('my other event', { my: 'data' });
+        });
+
+
+        let rpc = R.curry(createProxyFunction)((name, args, callback)=>{
+            socket.emit('call',{name, args}, callback)
+        })
+
+        let localProxyMethod1 = rpc('method1')
+        let localProxyMethod2 = rpc('method2')
+
+        localProxyMethod1('hello world').then((result)=>{console.log(result)})
+        debugger
+        /*let serverFunctions = [
+            'setTargetTo',
+            'endTurn',
+            'save',
+            'setApplyLighting',
+            'setTileTex',
+            'setTileObstacle',
+            'myTestFunction'
+        ]
+
+        let proxy = R.curry(createProxyFunction)((name, args, callback)=>{
+            socket.emit('call', {name : name , args : args}, (error, message) => callback(error, message))
+        })
+
+        let clientObject = R.reduce((a , b) => a[b] = proxy(b), {}, serverFunctions)
+        clientObject.myTestFunction('test')
+        // end of new code
+
         let client = createHyperionClient({
-            host: 'ws://' + location.host
+            host: 'wss://' + location.host
         })
 
         const emiter = new EventEmitter()
@@ -104,7 +144,7 @@ document.addEventListener('DOMContentLoaded', function () {
             })
         },(error)=>{
             console.log(error)
-        })
+        })*/
     }
 
     const update = (delta)=> {
@@ -167,4 +207,3 @@ document.addEventListener('DOMContentLoaded', function () {
         scale: 3
     })
 });
-

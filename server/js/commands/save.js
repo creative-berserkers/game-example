@@ -3,12 +3,10 @@
  */
 'use strict'
 const fs = require('fs')
-module.exports = function(emitter){
-    return (ctx)=>{
-        const model = ctx.model
-        const priv = model.priv
+module.exports = function(board, ctx, args){
+    const model = ctx.model
+    const priv = model.priv
 
-        fs.writeFileSync('./server/assets/levels/level1.json', JSON.stringify(model[priv].board, null, 2),'utf8')
-        return `The file was saved!`
-    }
+    fs.writeFileSync('./server/assets/levels/level1.json', JSON.stringify(model.board, null, 2),'utf8')
+    ctx.callback(undefined, `The file was saved!`)
 }

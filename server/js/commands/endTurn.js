@@ -3,8 +3,6 @@
  */
 'use strict'
 
-module.exports = function(emitter){
-    return ()=>{
-        console.log('turn ended')
-    }
+module.exports = function(ctx, args){
+    console.log('turn ended')
 }

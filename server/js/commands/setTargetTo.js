@@ -3,12 +3,12 @@
  */
 'use strict'
 
-module.exports = function createSetTargetTo(emitter){
-
-
-    return (ctx, x, y) => {
-        let model = ctx.model
-        let controlledPlayer = ctx.get('controlledPlayer')
+module.exports = function createSetTargetTo(players, findPath, ctx, [x, y]){
+        let controlledPlayer = players.find(player=>player.controlled === ctx.id)
+        if(!controlledPlayer){
+            ctx.callback('You are not controlling any character!')
+            return
+        }
 
         if(controlledPlayer.target.position.x === x && controlledPlayer.target.position.y === y){
             controlledPlayer.position = {
@@ -16,13 +16,12 @@ module.exports = function createSetTargetTo(emitter){
                 y : y
             }
             controlledPlayer.target.path = []
-            emitter.emit('invalid-light')
         } else {
             controlledPlayer.target.position = {
                 x : x,
                 y : y
             }
-            controlledPlayer.target.path = controlledPlayer[model.priv].findPath(controlledPlayer.position,controlledPlayer.target.position)
+            controlledPlayer.target.path = findPath(controlledPlayer.position,controlledPlayer.target.position)
         }
     }
 }
