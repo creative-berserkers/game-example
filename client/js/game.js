@@ -15,51 +15,12 @@ const createTargetPointer = require('./core/createTargetPointer')
 const createConsole = require('./console/createConsole')
 const createEditor = require('./editor/createEditor')
 const createInterpreter = require('./console/createInterpreter')
+const createChangeHandler = require('./createChangeHandler')
 
 document.addEventListener('DOMContentLoaded', function () {
 
     const debug = true
     const init = (graphicsCtx) => {
-
-        //start of new code
-        const socket = io('https://localhost:8443', {secure : true})
-        //client side
-        socket.on('news', function (data) {
-            console.log(data);
-            socket.emit('my other event', { my: 'data' });
-        });
-
-
-        let rpc = R.curry(createProxyFunction)((name, args, callback)=>{
-            socket.emit('call',{name, args}, callback)
-        })
-
-        let localProxyMethod1 = rpc('method1')
-        let localProxyMethod2 = rpc('method2')
-
-        localProxyMethod1('hello world').then((result)=>{console.log(result)})
-        debugger
-        /*let serverFunctions = [
-            'setTargetTo',
-            'endTurn',
-            'save',
-            'setApplyLighting',
-            'setTileTex',
-            'setTileObstacle',
-            'myTestFunction'
-        ]
-
-        let proxy = R.curry(createProxyFunction)((name, args, callback)=>{
-            socket.emit('call', {name : name , args : args}, (error, message) => callback(error, message))
-        })
-
-        let clientObject = R.reduce((a , b) => a[b] = proxy(b), {}, serverFunctions)
-        clientObject.myTestFunction('test')
-        // end of new code
-
-        let client = createHyperionClient({
-            host: 'wss://' + location.host
-        })
 
         const emiter = new EventEmitter()
 
@@ -67,7 +28,37 @@ document.addEventListener('DOMContentLoaded', function () {
             emiter: emiter
         })
 
-        client.then((clientCtx) => {
+        //start of new code
+        const socket = io('https://localhost:8443', {secure : true})
+
+        let rpc = R.curry(createProxyFunction)((name, args, callback)=>{
+            socket.emit('call',{name, args}, callback)
+        })
+
+        const methods = {
+            handshake : rpc('handshake'),
+            setTargetTo : rpc('setTargetTo')
+        }
+
+        let changeHandler = undefined
+        let modelRef = undefined
+
+        const onStart = (model)=>{
+            console.log('received model',model)
+            methods.handshake().then(console.log)
+
+            graphicsCtx.stage.removeChildren()
+
+            modelRef = model
+            changeHandler = createChangeHandler()
+
+            const clientCtx = {
+                model : model,
+                createChangeListener : (spec) =>{
+                    changeHandler.registerHandler(spec)
+                }
+            }
+
             const board = createBoard({
                 clientCtx : clientCtx,
                 graphicsCtx : graphicsCtx,
@@ -91,7 +82,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 parent : board.container()
             })
 
-            clientCtx.model.monsters.forEach((el, index)=>{
+            /*clientCtx.model.monsters.forEach((el, index)=>{
                 createMonster({
                     clientCtx : clientCtx,
                     graphicsCtx : graphicsCtx,
@@ -99,7 +90,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     id : index,
                     parent : board.container()
                 })
-            })
+            })*/
 
             createPlayer({
                 clientCtx : clientCtx,
@@ -117,7 +108,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 parent : board.container()
             })
 
-            const guiConsole = createConsole({
+            /*const guiConsole = createConsole({
                 graphicsCtx : graphicsCtx,
                 emiter : emiter
             })
@@ -141,10 +132,37 @@ document.addEventListener('DOMContentLoaded', function () {
                 graphicsCtx : graphicsCtx,
                 clientCtx : clientCtx,
                 emiter : emiter
+            })*/
+        }
+
+        const changesToProcess = []
+        let processing = false
+        const process = ()=>{
+            if(changesToProcess.length !== 0 && processing !== true){
+                processing = true
+                let change = changesToProcess.shift()
+                if(change.type === 'update'){
+                    R.path(R.dropLast(1,change.path), modelRef)[R.last(change.path)] = change.newValue
+                    changeHandler.fireOnChangeEvent({
+                        path : change.path,
+                        oldValue : change.oldValue,
+                        newValue : change.newValue,
+                        next : ()=>{
+                            processing = false
+                            setTimeout(process, 0)
+                        }
+                    })
+                }
+            }
+        }
+
+        socket.on('model', onStart)
+        socket.on('model-update', (changes)=>{
+            changes.forEach((change)=>{
+                changesToProcess.push(change)
             })
-        },(error)=>{
-            console.log(error)
-        })*/
+            setTimeout(process,0)
+        })
     }
 
     const update = (delta)=> {

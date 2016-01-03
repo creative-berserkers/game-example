@@ -2,10 +2,10 @@
 
 module.exports = function globalVisible(model, broadcast, path, parent, oldVisible, newVisible){
     if(oldVisible === false && newVisible === true){
-        broadcast({
+        broadcast([{
             type : 'update',
-            path : path.slice(0,-1)
-            newValue : parent            
-        })
+            path : path.slice(0,-1),
+            newValue : parent
+        }])
     }
 }

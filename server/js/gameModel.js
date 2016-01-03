@@ -1,5 +1,7 @@
 'use strict'
 
+const createPathFinder = require('./pathfinding/createPathFinder')
+
 const createEmptyBoard = function createEmptyBoard(width, height){
     let data = []
     for(let i=0; i<width * height; ++i){
@@ -32,7 +34,6 @@ const defaultBoardWidth = 25
 const defaultBoardHeight = 12
 
 let model = {
-    priv : priv,
     board: createEmptyBoard(defaultBoardWidth, defaultBoardHeight),
     players: [
         {
@@ -53,7 +54,12 @@ let model = {
             hp : {
                 max: 10,
                 current: 5
-            }
+            },
+            _findPath : createPathFinder({
+                width: defaultBoardWidth,
+                height: defaultBoardHeight,
+                isObstacle: (x,y) => { model.board.isObstacle(x,y) }
+            })
         },
         {
             controlled: '',
@@ -73,7 +79,12 @@ let model = {
             hp : {
                 max: 10,
                 current: 8
-            }
+            },
+            _findPath : createPathFinder({
+                width: defaultBoardWidth,
+                height: defaultBoardHeight,
+                isObstacle: (x,y) => {model.board.isObstacle(x,y)}
+            })
         }
     ]
 }

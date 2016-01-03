@@ -41,6 +41,11 @@ module.exports = function setup(spec) {
         PIXI.loader.add(el.name, el.url)
     })
 
+    let ctx = {
+        stage : stage,
+        renderer : renderer
+    }
+
     PIXI.loader
         .on('progress', function (loader, loadedResource) {
             console.log('Progress:', loader.progress + '%');
@@ -58,14 +63,11 @@ module.exports = function setup(spec) {
                     resource.frames.push(new PIXI.Texture(resource.texture.baseTexture, new PIXI.Rectangle(x, y, resource.frameWidth, resource.frameHeight)));
                 }
             }
-            next()
+            next(ctx)
         })
         .load(function (loader, resources) {
-            initCb({
-                stage : stage,
-                resources : resources,
-                renderer : renderer
-            })
+            ctx.resources = resources
+            initCb(ctx)
         });
 
     let lastTime = Date.now()
@@ -78,7 +80,7 @@ module.exports = function setup(spec) {
         updateCb(timeSinceLastFrame)
         lastTime = now
 
-        renderer.render(stage)
+        renderer.render(ctx.stage)
     }
 
     requestAnimationFrame(animate)

@@ -2,12 +2,12 @@
   "name": "cb-game-example",
   "version": "0.0.0",
   "description": "Simple game example",
-  "main": "game/src/index.js",
+  "main": "server/js/index.js",
   "scripts": {
     "test-server": "node node_modules/mocha/bin/_mocha --ui tdd --recursive ./server/test",
     "test-client": "node node_modules/mocha/bin/_mocha --ui tdd --recursive ./client/test",
     "webpack-watch": "node node_modules/webpack/bin/webpack.js -w",
-    "run-server": "node node_modules/babel-cli/bin/babel-node.js server/index.js"
+    "run-server": "node node_modules/babel-cli/bin/babel-node.js server/js/index.js"
   },
   "repository": {
     "type": "git",
@@ -30,7 +30,7 @@
     "cb-http-ws-server": "0.0.22",
     "cb-hyperion": "1.11.1",
     "cb-proxy": "1.1.2",
-    "cb-multiobserve": "2.4.0",
+    "cb-multiobserve": "v3.0.0-alpha",
     "eventemitter3": "1.1.1",
     "express": "4.13.3",
     "jasmine-node": "1.14.5",
