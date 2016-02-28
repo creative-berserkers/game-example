@@ -38,7 +38,10 @@ module.exports = function setup(spec) {
     })
 
     assets.forEach((el)=> {
-        PIXI.loader.add(el.name, el.url)
+        PIXI.loader.add(el.name, el.url, {metadata: {
+            width : el.width || 16,
+            height : el.height || 16,
+        }})
     })
 
     let ctx = {
@@ -51,12 +54,13 @@ module.exports = function setup(spec) {
             console.log('Progress:', loader.progress + '%');
         })
         .after(function (resource, next) {
-            resource.frameWidth = 16
-            resource.frameHeight = 16
+            resource.frameWidth = resource.metadata.width
+            resource.frameHeight = resource.metadata.height
+
             resource.frames = []
 
             const height = resource.texture.height - (resource.texture.height%resource.frameHeight === 0 ? 0:resource.frameHeight)
-            const width = resource.texture.width - (resource.texture.width%resource.frameHeight === 0 ? 0:resource.frameHeight)
+            const width = resource.texture.width - (resource.texture.width%resource.frameWidth === 0 ? 0:resource.frameWidth)
 
             for (let y = 0; y < height; y += resource.frameHeight) {
                 for (let x = 0; x < width; x += resource.frameWidth) {

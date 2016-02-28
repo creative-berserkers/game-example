@@ -16,6 +16,7 @@ const createConsole = require('./console/createConsole')
 const createEditor = require('./editor/createEditor')
 const createInterpreter = require('./console/createInterpreter')
 const createChangeHandler = require('./createChangeHandler')
+const createGUI = require('./core/createGUI')
 
 document.addEventListener('DOMContentLoaded', function () {
 
@@ -62,6 +63,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const board = createBoard({
                 clientCtx : clientCtx,
                 graphicsCtx : graphicsCtx,
+                methods : methods,
                 emiter : emiter,
                 parent : graphicsCtx.stage
             })
@@ -106,6 +108,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 emiter : emiter,
                 name : '1',
                 parent : board.container()
+            })
+
+            createGUI({
+                clientCtx : clientCtx,
+                graphicsCtx : graphicsCtx,
+                methods : methods,
+                emiter : emiter,
+                parent : graphicsCtx.stage
             })
 
             /*const guiConsole = createConsole({
@@ -214,6 +224,21 @@ document.addEventListener('DOMContentLoaded', function () {
             {
                 name: 'humanoid1',
                 url: '/assets/img/Characters/Humanoid1.png'
+            },
+            {
+                name: 'walk_btn',
+                url: '/assets/img/GUI/walk_btn.png',
+                width : 64
+            },
+            {
+                name: 'attack_btn',
+                url: '/assets/img/GUI/attack_btn.png',
+                width : 64
+            },
+            {
+                name: 'end_turn_btn',
+                url: '/assets/img/GUI/end_turn_btn.png',
+                width : 64
             }
         ],
         init: init,

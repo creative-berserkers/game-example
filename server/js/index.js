@@ -6,9 +6,11 @@ const path = require('path')
 const fs = require('fs')
 const https = require('https')
 const app = express()
-const model = require('./gameModel')
+const createModelMapping = require('./createModelMapping')
 const R = require('ramda')
 const commandlog = path.join(__dirname, '../logs/commandlog.txt')
+
+const model = createModelMapping()
 
 app.use(express.static(path.join(__dirname, '../../client')))
 
@@ -23,19 +25,16 @@ server.listen(8443)
 
 //const ioEmitModelUpdate = R.curry(io.emit)('model-update')
 
+const emitModelUpdate = (changes)=>{io.emit('model-update', changes)}
 const methods = createCommandMapping(model)
-const events = createEventMapping(model, (c)=>{
-    io.emit('model-update', c)
-})
+const events = createEventMapping(model, emitModelUpdate)
 
 Multiobserve.observe(model, function(changes){
-    io.emit('model-update', changes)
+    emitModelUpdate(changes)
     changes.forEach(change=>{
         const event = R.path(change.path,events)
         if(event){
-            event(model, (c)=>{
-                io.emit('model-update', c)
-            },change)
+            event(model, emitModelUpdate ,change)
         }
     })
 })

@@ -6,6 +6,7 @@ module.exports = function createBoard(spec){
     const graphicsCtx = spec.graphicsCtx
     const emiter = spec.emiter
     const parent = spec.parent
+    const methods = spec.methods
 
     const model = clientCtx.model
 
@@ -26,7 +27,7 @@ module.exports = function createBoard(spec){
         const x = Math.floor(pos.x  / resources.floor.frameWidth)
         const y = Math.floor(pos.y / resources.floor.frameWidth)
         const tile = model.board.data[y*model.board.width+x]
-        if(tile.visibility === 'visible'){
+        if(tile.visible === true){
             emiter.emit('r4two:board:tileselect',{
                 position : {
                     x : x,
@@ -37,7 +38,7 @@ module.exports = function createBoard(spec){
             if(disableInput === true){
                 return
             }
-            model.setTargetTo(x, y)
+            methods.setTargetTo(x, y)
         }
     })
 
@@ -70,19 +71,13 @@ module.exports = function createBoard(spec){
     const createTileFogOfWar = (tile, tileSprite, i)=>{
         const fogofwar = new PIXI.Sprite(resources.fogofwar.frames[0])
         fogofwar.alpha = 0.5
-        if(tile.visibility === 'discovered'){
-            fogofwar.visible = true
-        } else {
-            fogofwar.visible = false
-        }
+        fogofwar.visible = !tile.visible
+
         clientCtx.createChangeListener({
-            path:['board','data',i.toString(),'visibility'],
+            path:['board','data',i.toString(),'visible'],
             onChange : (path, oldValue, newValue, next)=>{
-                if(newValue === 'discovered'){
-                    fogofwar.visible = true
-                } else {
-                    fogofwar.visible = false
-                }
+                fogofwar.visible = !newValue
+
                 next()
             }
         })
